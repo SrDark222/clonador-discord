@@ -1,0 +1,14 @@
+{
+  "name": "clonador-discord",
+  "version": "1.0.0",
+  "description": "Clonador de categorias, canais e mensagens com anexo via Selfbot.",
+  "main": "index.js",
+  "scripts": {
+    "start": "clear && node index.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.7",
+    "discord.js-selfbot-v13": "^1.9.8",
+    "gradient-string": "^2.0.1"
+  }
+}
