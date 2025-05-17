@@ -8,7 +8,8 @@ Ferramenta via **Discord Selfbot** para clonar:
 ## Instalação (Termux)
 ```bash
 pkg update && pkg install git nodejs -y
-git clone https://github.com/SEUNOME/clonador-discord.git
+git clone https://github.com/SrDark222/clonador-discord.git
 cd clonador-discord
 npm install
 npm start
+```
