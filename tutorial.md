@@ -1,6 +1,6 @@
 # Clonador de Categorias e Canais do Discord
 
-Ferramenta via **Discord Selfbot** para clonar:
+Ferramenta via **Discord** para clonar:
 - Categorias
 - Canais de texto
 - Mensagens com anexos (até 100 por canal)
