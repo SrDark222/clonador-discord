@@ -8,67 +8,55 @@ const rl = readline.createInterface({ input: process.stdin, output: process.stdo
 const ask = q => new Promise(res => rl.question(q, res));
 
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
-function gerarNomeUnico(base) {
-  const random = Math.floor(Math.random() * 99999999999);
-  return `${base}-${random}`;
-}
+function gerarNome(base) { return `${base}${Math.floor(Math.random() * 999999)}${Date.now()}`; }
 
 (async () => {
   console.clear();
-  console.log(gradient.pastel('───「 CLONADOR DE CANAIS V13 / ARQUIVOS E MÍDIAS 」───\n'));
+  console.log(gradient.vice('┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n┃  CLONADOR DE CANAIS + MÍDIA V13  ┃\n┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n'));
 
-  const token = await ask('TOKEN: ');
-  const idServerAlvo = await ask('ID DO SERVIDOR ALVO: ');
-  const idCategoriaAlvo = await ask('ID DA CATEGORIA ALVO: ');
-  const idServerDestino = await ask('ID DO SERVIDOR DESTINO: ');
-  const idCategoriaDestino = await ask('ID DA CATEGORIA DESTINO: ');
-  const novoNomeCategoria = await ask('NOVO NOME PARA A CATEGORIA: ');
-
-  console.log(`\nALVO: ${idServerAlvo} | CATEGORIA: ${idCategoriaAlvo}`);
-  console.log(`DESTINO: ${idServerDestino} | NOVO NOME: ${novoNomeCategoria}\n`);
+  const token = await ask('TOKEN DO SELF: ');
+  const idOrigem = await ask('ID DO SERVIDOR DE ORIGEM: ');
+  const idCategoriaOrigem = await ask('ID DA CATEGORIA DE ORIGEM: ');
+  const idDestino = await ask('ID DO SERVIDOR DE DESTINO: ');
+  const idCategoriaDestino = await ask('ID DA CATEGORIA DE DESTINO: ');
+  const novoNomeCat = await ask('NOVO NOME PARA CATEGORIA: ');
 
   client.login(token).catch(() => {
-    console.log('❌ TOKEN INVÁLIDO');
+    console.log('❌ Token inválido.');
     process.exit();
   });
 
   client.on('ready', async () => {
-    console.log(`✅ Logado como ${client.user.tag}\n`);
+    console.log(`✅ Logado como ${client.user.tag}`);
 
-    const serverAlvo = client.guilds.cache.get(idServerAlvo);
-    const serverDestino = client.guilds.cache.get(idServerDestino);
-    const categoriaAlvo = serverAlvo.channels.cache.get(idCategoriaAlvo);
-    const categoriaDestino = serverDestino.channels.cache.get(idCategoriaDestino);
+    const serverOrigem = client.guilds.cache.get(idOrigem);
+    const serverDestino = client.guilds.cache.get(idDestino);
+    const catOrigem = serverOrigem.channels.cache.get(idCategoriaOrigem);
+    const catDestino = serverDestino.channels.cache.get(idCategoriaDestino);
 
-    if (!serverAlvo || !serverDestino || !categoriaAlvo || !categoriaDestino) {
-      console.log('❌ IDs inválidos.');
-      process.exit();
-    }
+    if (!serverOrigem || !serverDestino || !catOrigem || !catDestino) return console.log('❌ IDs inválidos.');
 
-    await categoriaDestino.setName(novoNomeCategoria).catch(() => {
-      console.log('⚠️ Falha ao renomear categoria destino.');
-    });
+    await catDestino.setName(novoNomeCat).catch(() => console.log('⚠️ Falha ao renomear categoria.'));
 
-    const canaisTexto = serverAlvo.channels.cache
-      .filter(c => c.parentId === idCategoriaAlvo && c.type === 0)
+    const canais = serverOrigem.channels.cache
+      .filter(c => c.parentId === idCategoriaOrigem && c.type === 0)
       .sort((a, b) => a.position - b.position);
 
-    let logCount = 0;
+    let count = 0;
 
-    for (const canal of canaisTexto.values()) {
+    for (const canal of canais.values()) {
       try {
-        const nomeNovo = gerarNomeUnico(canal.name);
-        const novoCanal = await serverDestino.channels.create(nomeNovo, {
+        const novoNome = gerarNome(canal.name);
+        const canalNovo = await serverDestino.channels.create(novoNome, {
           type: 0,
           parent: idCategoriaDestino,
-          topic: canal.topic || null,
-          nsfw: canal.nsfw,
+          topic: canal.topic || '',
         });
-
-        console.log(`\n[+] Canal clonado: ${canal.name} => ${nomeNovo}`);
+        console.log(`\n[+] Canal clonado: ${canal.name} => ${novoNome}`);
 
         let mensagens = [];
         let lastID = null;
+
         while (mensagens.length < 100) {
           const opt = { limit: 50 };
           if (lastID) opt.before = lastID;
@@ -81,37 +69,35 @@ function gerarNomeUnico(base) {
         mensagens = mensagens.slice(0, 100).reverse();
 
         for (const msg of mensagens) {
+          let conteudo = msg.content || '';
           let arquivos = [];
-          let contentMsg = msg.content || '';
 
-          if (msg.attachments.size > 0) {
-            for (const file of msg.attachments.values()) {
-              try {
-                if (file.size > 10485760) {
-                  contentMsg += `\n(arquivo acima de 10mb ignorado: ${file.name})`;
-                  continue;
-                }
+          for (const att of msg.attachments.values()) {
+            if (att.size > 10485760) {
+              conteudo += `\n(arquivo acima de 10mb ignorado: ${att.name})`;
+              continue;
+            }
 
-                const res = await axios.get(file.url, { responseType: 'arraybuffer' });
-                const ext = file.name.split('.').pop();
-                const nomeArquivo = `img${Math.floor(Math.random() * 999999)}.${ext}`;
-                arquivos.push({ attachment: Buffer.from(res.data), name: nomeArquivo });
-              } catch {
-                contentMsg += `\n(falha ao baixar ${file.name})`;
-              }
+            try {
+              const ext = att.name.split('.').pop();
+              const nomeArquivo = gerarNome('file') + '.' + ext;
+              const buffer = (await axios.get(att.url, { responseType: 'arraybuffer' })).data;
+              arquivos.push({ attachment: Buffer.from(buffer), name: nomeArquivo });
+            } catch {
+              conteudo += `\n(falha ao baixar: ${att.name})`;
             }
           }
 
           try {
             if (arquivos.length > 0) {
-              await novoCanal.send({ content: contentMsg, files: arquivos });
-            } else if (contentMsg.trim()) {
-              await novoCanal.send(contentMsg);
+              await canalNovo.send({ content: conteudo, files: arquivos });
+            } else if (conteudo.trim()) {
+              await canalNovo.send(conteudo);
             }
-            logCount++;
-            console.log(`+1 clonada (${logCount})`);
+            count++;
+            console.log(`+1 log (${count})`);
           } catch {
-            console.log('-1 falhou');
+            console.log(`-1 erro ao enviar`);
           }
 
           await delay(1500);
@@ -119,11 +105,11 @@ function gerarNomeUnico(base) {
 
         await delay(2000);
       } catch (e) {
-        console.log(`⚠️ Falha no canal ${canal.name}: ${e.message}`);
+        console.log(`Erro ao clonar canal ${canal.name}: ${e.message}`);
       }
     }
 
-    console.log(`\n✓ FIM. Total de mensagens clonadas: ${logCount}`);
+    console.log(`\n✅ Clonagem finalizada. Total: ${count} mensagens.`);
     process.exit();
   });
 })();
