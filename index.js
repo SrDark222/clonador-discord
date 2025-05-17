@@ -7,6 +7,11 @@ const client = new Discord.Client();
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const ask = q => new Promise(res => rl.question(q, res));
 
+function gerarNomeUnico(nomeOriginal) {
+  const sufixo = Math.floor(Math.random() * 99999999999) + 1;
+  return `${nomeOriginal}-${sufixo}`;
+}
+
 (async () => {
   console.log(gradient.instagram('──── 『 CLONAGEM DE CATEGORIA E CANAIS 』 ────\n'));
 
@@ -25,7 +30,6 @@ const ask = q => new Promise(res => rl.question(q, res));
   client.on('ready', async () => {
     console.log(`Logado como ${client.user.tag}\n`);
 
-    // Pega guilds
     const serverAlvo = await client.guilds.fetch(idServerAlvo).catch(() => null);
     const serverDestino = await client.guilds.fetch(idServerDestino).catch(() => null);
 
@@ -34,7 +38,6 @@ const ask = q => new Promise(res => rl.question(q, res));
       process.exit();
     }
 
-    // Pega categoria do alvo e do destino
     const categoriaAlvo = serverAlvo.channels.cache.get(idCategoriaAlvo);
     if (!categoriaAlvo || categoriaAlvo.type !== 'GUILD_CATEGORY') {
       console.log('❌ Categoria alvo inválida.');
@@ -47,80 +50,79 @@ const ask = q => new Promise(res => rl.question(q, res));
       process.exit();
     }
 
-    // Renomeia categoria destino pro nome escolhido
     await categoriaDestinoOriginal.setName(novoNomeCategoriaDestino).catch(() => {
       console.log('⚠️ Não foi possível renomear a categoria destino.');
     });
 
-    // Pega canais dentro da categoria alvo (ordenados por posição)
     const canaisAlvo = serverAlvo.channels.cache
       .filter(c => c.parentId === idCategoriaAlvo)
       .sort((a, b) => a.position - b.position);
 
-    console.log(`Clonando ${canaisAlvo.size} canais da categoria "${categoriaAlvo.name}" para a categoria "${novoNomeCategoriaDestino}"...`);
+    console.log(`Clonando ${canaisAlvo.size} canais...`);
 
     for (const [id, canal] of canaisAlvo) {
       try {
-        // Cria canal dentro da categoria destino (usando idCategoriaDestino)
-        const newChan = await serverDestino.channels.create(canal.name, {
+        const nomeSeguro = gerarNomeUnico(canal.name);
+        const newChan = await serverDestino.channels.create(nomeSeguro, {
           type: canal.type,
           parent: idCategoriaDestino,
           topic: canal.topic || null,
           nsfw: canal.nsfw,
           rateLimitPerUser: canal.rateLimitPerUser || 0,
-          position: canal.position // tenta manter a posição original
+          position: canal.position
         });
 
-        console.log(`✓ Canal clonado: ${canal.name}`);
+        console.log(`✓ Canal clonado: ${canal.name} -> ${nomeSeguro}`);
 
-        // Clonar até 100 mensagens do canal original (texto + arquivos)
-        let mensagens = [];
-        let lastID = null;
-        while (mensagens.length < 100) {
-          const opt = { limit: 50 };
-          if (lastID) opt.before = lastID;
-          const fetched = await canal.messages.fetch(opt);
-          if (!fetched.size) break;
-          mensagens = mensagens.concat(Array.from(fetched.values()));
-          lastID = fetched.last().id;
-        }
+        // Apenas canais de texto (TEXT ou MEDIA) podem ter mensagens clonadas
+        if (canal.type === 'GUILD_TEXT' || canal.type === 'GUILD_MEDIA') {
+          let mensagens = [];
+          let lastID = null;
 
-        mensagens = mensagens.slice(0, 100).reverse();
+          while (mensagens.length < 100) {
+            const opt = { limit: 50 };
+            if (lastID) opt.before = lastID;
+            const fetched = await canal.messages.fetch(opt);
+            if (!fetched.size) break;
+            mensagens = mensagens.concat(Array.from(fetched.values()));
+            lastID = fetched.last().id;
+          }
 
-        for (const msg of mensagens) {
-          let arquivos = [];
-          if (msg.attachments.size) {
-            for (const a of msg.attachments.values()) {
-              try {
-                const res = await axios.get(a.url, { responseType: 'arraybuffer' });
-                const name = a.name || 'file.jpg';
-                arquivos.push({ attachment: Buffer.from(res.data), name });
-              } catch {
-                console.log('⚠️ Erro baixando anexo:', a.url);
+          mensagens = mensagens.slice(0, 100).reverse();
+
+          for (const msg of mensagens) {
+            let arquivos = [];
+            if (msg.attachments.size) {
+              for (const a of msg.attachments.values()) {
+                try {
+                  const res = await axios.get(a.url, { responseType: 'arraybuffer' });
+                  const name = a.name || 'file.jpg';
+                  arquivos.push({ attachment: Buffer.from(res.data), name });
+                } catch {
+                  console.log('⚠️ Erro baixando anexo:', a.url);
+                }
               }
             }
-          }
 
-          const content = msg.content || '';
-          try {
-            if (arquivos.length)
-              await newChan.send({ content, files: arquivos });
-            else if (content) await newChan.send(content);
-          } catch {
-            // ignora erro de envio
-          }
+            const content = msg.content || '';
+            try {
+              if (arquivos.length)
+                await newChan.send({ content, files: arquivos });
+              else if (content) await newChan.send(content);
+            } catch {}
 
-          await new Promise(r => setTimeout(r, 1200)); // delay pra evitar rate limit
+            await new Promise(r => setTimeout(r, 1200));
+          }
         }
 
-        await new Promise(r => setTimeout(r, 1500)); // delay geral
+        await new Promise(r => setTimeout(r, 1500));
 
       } catch (e) {
         console.log(`Erro clonando canal ${canal.name}: ${e.message}`);
       }
     }
 
-    console.log('\nClonagem da categoria finalizada.');
+    console.log('\n✅ Clonagem finalizada.');
     process.exit();
   });
 })();
