@@ -13,7 +13,7 @@ function ask(q) {
 
 (async () => {
   const token = await ask('Token do bot: ');
-  const servidorId = await ask('ID do servidor que vai ser clonado: ');
+  const origemId = await ask('ID do servidor que vai ser clonado: ');
   const destinoId = await ask('ID do servidor destino: ');
 
   const bot = new Client({
@@ -30,62 +30,56 @@ function ask(q) {
   bot.once('ready', async () => {
     console.log(`Bot conectado como ${bot.user.tag}`);
 
-    const servidorOrigem = await bot.guilds.fetch(servidorId);
-    const servidorDestino = await bot.guilds.fetch(destinoId);
+    const origem = await bot.guilds.fetch(origemId);
+    const destino = await bot.guilds.fetch(destinoId);
+    const canaisOrigem = await origem.channels.fetch();
+    const categorias = canaisOrigem.filter(c => c.type === 4);
 
-    const canaisOrigem = await servidorOrigem.channels.fetch();
-    const categorias = canaisOrigem.filter(c => c.type === 4); // 4 = Categoria
-
-    for (const [id, categoria] of categorias) {
-      const novaCategoria = await servidorDestino.channels.create({
+    for (const [catId, categoria] of categorias) {
+      const novaCategoria = await destino.channels.create({
         name: categoria.name,
         type: 4,
         position: categoria.rawPosition
       });
 
-      const canaisTexto = canaisOrigem.filter(
-        c => c.parentId === id && c.type === 0
-      );
+      const canaisTexto = canaisOrigem.filter(c => c.parentId === catId && c.type === 0);
 
-      for (const [canalId, canal] of canaisTexto) {
-        const nomeGerado = `${canal.name}-${Math.floor(Math.random() * 999999999)}`;
-        const newChan = await servidorDestino.channels.create({
-          name: nomeGerado,
+      for (const [_, canal] of canaisTexto) {
+        const nomeSeguro = `${canal.name}-${Math.floor(Math.random() * 99999999)}`;
+        const novoCanal = await destino.channels.create({
+          name: nomeSeguro,
           type: 0,
           parent: novaCategoria.id,
           position: canal.rawPosition
         });
 
         const mensagens = await canal.messages.fetch({ limit: 100 });
-        const mensagensOrdem = [...mensagens.values()].reverse();
+        const mensagensOrdenadas = [...mensagens.values()].reverse();
 
-        for (const msg of mensagensOrdem) {
-          const content = msg.content?.trim() || '';
+        for (const msg of mensagensOrdenadas) {
           let arquivos = [];
 
           if (msg.attachments.size > 0) {
-            for (const a of msg.attachments.values()) {
+            for (const anexo of msg.attachments.values()) {
               try {
-                const response = await axios.get(a.url, { responseType: 'arraybuffer' });
-                arquivos.push({ attachment: Buffer.from(response.data), name: a.name || 'file' });
-              } catch {
-                console.log('⚠️ Falha ao baixar:', a.url);
+                const resposta = await axios.get(anexo.url, { responseType: 'arraybuffer' });
+                arquivos.push({ attachment: Buffer.from(resposta.data), name: anexo.name || 'arquivo.png' });
+              } catch (erro) {
+                console.log(`Erro ao baixar anexo: ${erro.message}`);
               }
             }
           }
 
           try {
-            if (content.length > 0 || arquivos.length > 0) {
-              await newChan.send({
-                content: content.length > 0 ? content : undefined,
-                files: arquivos.length > 0 ? arquivos : undefined
-              });
-            }
-          } catch (e) {
-            console.log(`⚠️ Erro ao enviar mensagem: ${e.message}`);
+            await novoCanal.send({
+              content: msg.content || undefined,
+              files: arquivos.length > 0 ? arquivos : undefined
+            });
+          } catch (erro) {
+            console.log(`Erro ao clonar mensagem: ${erro.message}`);
           }
 
-          await new Promise(r => setTimeout(r, 1200));
+          await new Promise(r => setTimeout(r, 1000));
         }
 
         console.log(`✅ Canal clonado: ${canal.name}`);
@@ -94,7 +88,7 @@ function ask(q) {
       console.log(`=== Categoria clonada: ${categoria.name} ===`);
     }
 
-    console.log('✅ Clonagem completa!');
+    console.log('✅ Tudo clonado com sucesso!');
     process.exit();
   });
 
