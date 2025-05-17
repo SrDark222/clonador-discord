@@ -74,8 +74,8 @@ function gerarNomeUnico(nomeOriginal) {
 
         console.log(`✓ Canal clonado: ${canal.name} -> ${nomeSeguro}`);
 
-        // Apenas canais de texto (TEXT ou MEDIA) podem ter mensagens clonadas
-        if (canal.type === 'GUILD_TEXT' || canal.type === 'GUILD_MEDIA') {
+        // Clonar mensagens só se for canal de texto (GUILD_TEXT)
+        if (canal.type === 'GUILD_TEXT') {
           let mensagens = [];
           let lastID = null;
 
@@ -95,9 +95,10 @@ function gerarNomeUnico(nomeOriginal) {
             if (msg.attachments.size) {
               for (const a of msg.attachments.values()) {
                 try {
+                  // Baixa o arquivo como arraybuffer
                   const res = await axios.get(a.url, { responseType: 'arraybuffer' });
-                  const name = a.name || 'file.jpg';
-                  arquivos.push({ attachment: Buffer.from(res.data), name });
+                  // Salva buffer pro envio
+                  arquivos.push({ attachment: Buffer.from(res.data), name: a.name || 'file' });
                 } catch {
                   console.log('⚠️ Erro baixando anexo:', a.url);
                 }
@@ -105,12 +106,20 @@ function gerarNomeUnico(nomeOriginal) {
             }
 
             const content = msg.content || '';
-            try {
-              if (arquivos.length)
-                await newChan.send({ content, files: arquivos });
-              else if (content) await newChan.send(content);
-            } catch {}
 
+            try {
+              if (arquivos.length > 0) {
+                // Se tiver texto e arquivos, envia junto
+                await newChan.send({ content: content.length > 0 ? content : undefined, files: arquivos });
+              } else if (content.length > 0) {
+                // Só texto
+                await newChan.send(content);
+              }
+            } catch (e) {
+              // Ignora erros (ex: permissão, rate limit)
+            }
+
+            // Delay pra não levar ban / rate limit
             await new Promise(r => setTimeout(r, 1200));
           }
         }
