@@ -15,7 +15,7 @@ const titulo = `
  @@@@@@@  @@@        @@@@@@   @@@  @@@  @@@@@@@@  @@@@@@@      @@@  @@@    @@@
 @@@@@@@@  @@@       @@@@@@@@  @@@@ @@@  @@@@@@@@  @@@@@@@@     @@@  @@@   @@@@
 !@@       @@!       @@!  @@@  @@!@!@@@  @@!       @@!  @@@     @@!  @@@  @@@!!
-!@!       !@!       !@!  @!@  !@!!@!@!  !@!       !@!  !@!     !@!  @!@    !@!
+!@!       !@!       !@!  !@!  !@!!@!@!  !@!       !@!  !@!     !@!  @!@    !@!
 !@!       @!!       @!@  !@!  @!@ !!@!  @!!!:!    @!@!!@!      @!@  !@!    @!@
 !!!       !!!       !@!  !!!  !@!  !!!  !!!!!:    !!@!@!       !@!  !!!    !@!
 :!!       !!:       !!:  !!!  !!:  !!!  !!:       !!: :!!      :!:  !!:    !!:
@@ -29,13 +29,12 @@ const mostrarTitulo = () => {
   console.log(gradient.pastel.multiline(titulo));
 };
 
-// Tradução usando MyMemory API, mas com fonte fixa EN para evitar erro AUTO
+// Tradução usando MyMemory API (free, sem chave)
 async function traduzirParaPortugues(texto) {
   if (!texto || texto.trim() === '') return '';
 
   try {
-    // Usar EN|PT para evitar 'auto' inválido na API
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(texto)}&langpair=en|pt`;
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(texto)}&langpair=auto|pt`;
     console.log(chalk.blue('[API] Traduzindo mensagem via MyMemory...'));
     const res = await axios.get(url, { timeout: 60000 });
     if (res.data && res.data.responseData && res.data.responseData.translatedText) {
@@ -105,15 +104,41 @@ async function downloadAndUploadFile(attachment) {
   }
 }
 
+// Função para substituir tags de canal na mensagem pelo novo ID do canal clonado
+function substituirTagsCanal(mensagem, mapaCanais) {
+  // Regex para achar tags do tipo #nome-do-canal (mentions podem variar, esse é mais simples)
+  // O formato exato depende do padrão usado, aqui assumo que é #nomeDoCanal mesmo, sem <>
+  // Se for menção de canal no Discord, elas vem assim: <#ID>
+  // O correto é trocar menções no formato <#ID> pelo novo ID
+  // Então vamos trocar todas as menções <#ID> que existam
+  return mensagem.replace(/<#(\d+)>/g, (match, id) => {
+    if (mapaCanais[id]) {
+      return `<#${mapaCanais[id]}>`;
+    }
+    return match;
+  });
+}
+
 (async () => {
   mostrarTitulo();
 
-  const token = await ask('\n[?] COLE SEU TOKEN: ');
-  const idServerOrigem = await ask('[?] ID DO SERVIDOR DE ORIGEM: ');
-  const idCategoriaOrigem = await ask('[?] ID DA CATEGORIA DE ORIGEM: ');
-  const idServerDestino = await ask('[?] ID DO SERVIDOR DESTINO: ');
-  const idCategoriaDestino = await ask('[?] ID DA CATEGORIA DESTINO: ');
-  const novoNomeCategoriaDestino = await ask('[?] NOVO NOME DA CATEGORIA DESTINO: ');
+  console.log('\n[?] COLE SEU TOKEN: ');
+  const token = await ask('');
+
+  console.log('[?] ID DO SERVIDOR DE ORIGEM: ');
+  const idServerOrigem = await ask('');
+
+  console.log('[?] ID DA CATEGORIA DE ORIGEM: ');
+  const idCategoriaOrigem = await ask('');
+
+  console.log('[?] ID DO SERVIDOR DESTINO: ');
+  const idServerDestino = await ask('');
+
+  console.log('[?] ID DA CATEGORIA DESTINO: ');
+  const idCategoriaDestino = await ask('');
+
+  console.log('[?] NOVO NOME DA CATEGORIA DESTINO: ');
+  const novoNomeCategoriaDestino = await ask('');
 
   const client = new Discord.Client();
 
@@ -148,6 +173,9 @@ async function downloadAndUploadFile(attachment) {
       console.log(chalk.red('\n❌ Falha ao renomear categoria destino.'));
     }
 
+    // Mapear canais originais para canais novos para trocar IDs nas tags
+    const mapaCanais = {};
+
     const canais = origem.channels.cache
       .filter(c => c.parentId === idCategoriaOrigem)
       .sort((a, b) => a.position - b.position);
@@ -158,13 +186,18 @@ async function downloadAndUploadFile(attachment) {
           type: canal.type,
           parent: catDestino.id,
         });
+
+        mapaCanais[canal.id] = novoCanal.id;
+
         console.log(gradient.vice(`[>] Clonando canal: ${canal.name}`));
 
         const msgs = await canal.messages.fetch({ limit: 50 });
 
-        // Mensagens em ordem cronológica (mais antigas primeiro)
-        for (const msg of [...msgs.values()].reverse()) {
+        for (const msg of msgs.reverse().values()) {
           let content = msg.content || '';
+
+          // Substituir tags de canal pelo novo ID
+          content = substituirTagsCanal(content, mapaCanais);
 
           if (msg.attachments.size > 0) {
             for (const a of msg.attachments.values()) {
@@ -181,17 +214,22 @@ async function downloadAndUploadFile(attachment) {
             }
           }
 
-          // Traduzir texto, mas se o texto for vazio, não traduzir
-          let conteudoTraduzido = content.trim() ? await traduzirParaPortugues(content) : '[mensagem vazia]';
+          // Limitar mensagem para até 470 caracteres para evitar erro API
+          if (content.length > 470) {
+            content = content.slice(0, 470) + '...';
+          }
+
+          // Tradução com logs e retry
+          const conteudoTraduzido = await traduzirParaPortugues(content);
 
           try {
-            await novoCanal.send(conteudoTraduzido);
+            await novoCanal.send(conteudoTraduzido || '[mensagem vazia]');
             console.log(gradient.morning(`[+1] ${canal.name}: Mensagem clonada e traduzida`));
           } catch (err) {
             console.log(gradient.passion(`[-] Erro ao enviar mensagem: ${err.message}`));
           }
 
-          await sleep(1500); // evitar rate limit
+          await sleep(1500);
         }
 
       } catch (err) {
