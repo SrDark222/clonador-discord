@@ -6,7 +6,6 @@ const chalk = require('chalk');
 const axios = require('axios');
 const fs = require('fs');
 const FormData = require('form-data');
-const translate = require('@vitalets/google-translate-api');
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const ask = q => new Promise(res => rl.question(q, res));
@@ -30,17 +29,24 @@ const mostrarTitulo = () => {
   console.log(gradient.pastel.multiline(titulo));
 };
 
-// Traduz com Google Translate API não oficial
+// Tradução usando MyMemory API (free, sem chave)
 async function traduzirParaPortugues(texto) {
   if (!texto || texto.trim() === '') return '';
+
   try {
-    console.log(chalk.blue('[API] Traduzindo mensagem via Google Translate API...'));
-    const res = await translate(texto, { to: 'pt' });
-    console.log(chalk.green('[API] Tradução recebida.'));
-    return res.text;
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(texto)}&langpair=auto|pt`;
+    console.log(chalk.blue('[API] Traduzindo mensagem via MyMemory...'));
+    const res = await axios.get(url, { timeout: 60000 });
+    if (res.data && res.data.responseData && res.data.responseData.translatedText) {
+      console.log(chalk.green('[API] Tradução recebida.'));
+      return res.data.responseData.translatedText;
+    } else {
+      console.log(chalk.red('[API] Resposta inválida da tradução.'));
+      return texto;
+    }
   } catch (err) {
     console.log(chalk.red(`[API] Erro na tradução: ${err.message}`));
-    return texto; // fallback no texto original
+    return texto;
   }
 }
 
@@ -101,12 +107,23 @@ async function downloadAndUploadFile(attachment) {
 (async () => {
   mostrarTitulo();
 
-  const token = await ask('[?] COLE SEU TOKEN: ');
-  const idServerOrigem = await ask('[?] ID DO SERVIDOR DE ORIGEM: ');
-  const idCategoriaOrigem = await ask('[?] ID DA CATEGORIA DE ORIGEM: ');
-  const idServerDestino = await ask('[?] ID DO SERVIDOR DESTINO: ');
-  const idCategoriaDestino = await ask('[?] ID DA CATEGORIA DESTINO: ');
-  const novoNomeCategoriaDestino = await ask('[?] NOVO NOME DA CATEGORIA DESTINO: ');
+  console.log('\n[?] COLE SEU TOKEN: ');
+  const token = await ask('');
+
+  console.log('[?] ID DO SERVIDOR DE ORIGEM: ');
+  const idServerOrigem = await ask('');
+
+  console.log('[?] ID DA CATEGORIA DE ORIGEM: ');
+  const idCategoriaOrigem = await ask('');
+
+  console.log('[?] ID DO SERVIDOR DESTINO: ');
+  const idServerDestino = await ask('');
+
+  console.log('[?] ID DA CATEGORIA DESTINO: ');
+  const idCategoriaDestino = await ask('');
+
+  console.log('[?] NOVO NOME DA CATEGORIA DESTINO: ');
+  const novoNomeCategoriaDestino = await ask('');
 
   const client = new Discord.Client();
 
@@ -173,7 +190,7 @@ async function downloadAndUploadFile(attachment) {
             }
           }
 
-          // Tradução via Google Translate API
+          // Tradução com logs e retry
           const conteudoTraduzido = await traduzirParaPortugues(content);
 
           try {
