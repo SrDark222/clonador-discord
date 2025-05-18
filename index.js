@@ -37,12 +37,10 @@ const mostrarTitulo = () => {
   console.log(gradient.pastel.multiline(titulo));
 };
 
-// Pega servidor do Catbox (fixo)
 function getCatboxUploadUrl() {
   return 'https://catbox.moe/user/api.php';
 }
 
-// Upload arquivo grande via Catbox
 async function uploadBigFileToCatbox(filePath) {
   try {
     const form = new FormData();
@@ -66,7 +64,6 @@ async function uploadBigFileToCatbox(filePath) {
   }
 }
 
-// Baixa arquivo e faz upload via Catbox
 async function downloadAndUploadFile(attachment) {
   const tmpPath = `./temp_${attachment.id}_${attachment.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
   try {
@@ -170,13 +167,13 @@ async function downloadAndUploadFile(attachment) {
           if (msg.attachments.size > 0) {
             for (const a of msg.attachments.values()) {
               if (a.size <= 9990000) {
-                content += `\nArquivo: ${a.name} ${a.url}`;
+                content += `\n${a.url}`;
               } else {
                 try {
                   const linkUpload = await downloadAndUploadFile(a);
-                  content += `\nArquivo grande: ${a.name} ${linkUpload}`;
+                  content += `\n${linkUpload}`;
                 } catch (err) {
-                  content += `\nERRO AO UPLOAD ARQUIVO GRANDE: ${a.name} - ${err.message}`;
+                  content += `\nERRO AO UPLOAD ARQUIVO GRANDE: ${err.message}`;
                 }
               }
             }
