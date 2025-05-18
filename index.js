@@ -37,33 +37,40 @@ const mostrarTitulo = () => {
   console.log(gradient.pastel.multiline(titulo));
 };
 
-function getCatboxUploadUrl() {
-  return 'https://catbox.moe/user/api.php';
+// Pega servidor catbox
+async function getCatboxServer() {
+  // catbox usa server padrão, não precisa pegar
+  return 'https://catbox.moe';
 }
 
+// Upload arquivo grande pro catbox
 async function uploadBigFileToCatbox(filePath) {
   try {
     const form = new FormData();
     form.append('reqtype', 'fileupload');
     form.append('fileToUpload', fs.createReadStream(filePath));
 
-    const res = await axios.post(getCatboxUploadUrl(), form, {
+    const res = await axios.post('https://catbox.moe/user/api.php', form, {
       headers: form.getHeaders(),
       maxBodyLength: Infinity,
       maxContentLength: Infinity,
       timeout: 120000,
+      params: {
+        // Pode adicionar user hash aqui se quiser, mas não obrigatório
+      }
     });
 
-    if (res.status === 200 && res.data.startsWith('http')) {
+    if (res.status === 200 && res.data.startsWith('https://')) {
       return res.data.trim();
     } else {
-      throw new Error('Upload Catbox falhou');
+      throw new Error('Upload falhou');
     }
   } catch (err) {
     throw new Error(`Erro uploadBigFileToCatbox: ${err.message}`);
   }
 }
 
+// Baixa o arquivo e sobe pro catbox
 async function downloadAndUploadFile(attachment) {
   const tmpPath = `./temp_${attachment.id}_${attachment.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
   try {
@@ -161,17 +168,18 @@ async function downloadAndUploadFile(attachment) {
 
         const msgs = await canal.messages.fetch({ limit: 50 });
 
+        // Mensagens do mais velho para o mais novo
         for (const msg of msgs.reverse().values()) {
           let content = msg.content || '';
 
           if (msg.attachments.size > 0) {
             for (const a of msg.attachments.values()) {
               if (a.size <= 9990000) {
-                content += `\n${a.url}`;
+                content += `\n[${a.name}](${a.url})`;
               } else {
                 try {
                   const linkUpload = await downloadAndUploadFile(a);
-                  content += `\n${linkUpload}`;
+                  content += `\n[${a.name}](${linkUpload})`;
                 } catch (err) {
                   content += `\nERRO AO UPLOAD ARQUIVO GRANDE: ${err.message}`;
                 }
@@ -180,7 +188,7 @@ async function downloadAndUploadFile(attachment) {
           }
 
           try {
-            await novoCanal.send(content || 'mensagem vazia');
+            await novoCanal.send(content || '[mensagem vazia]');
             console.log(gradient.morning(`[+1] ${canal.name}: Mensagem clonada`));
           } catch (err) {
             console.log(gradient.passion(`[-] Erro ao enviar: ${err.message}`));
@@ -188,6 +196,7 @@ async function downloadAndUploadFile(attachment) {
 
           await sleep(1500);
         }
+
       } catch (err) {
         console.log(gradient.summer(`[-] Falha ao clonar canal ${canal.name}: ${err.message}`));
       }
