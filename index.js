@@ -10,34 +10,17 @@ const rl = readline.createInterface({ input: process.stdin, output: process.stdo
 const ask = q => new Promise(res => rl.question(q, res));
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+const clear = async () => {
+  console.clear();
+  await sleep(1500); // delay pra não bugar ASCII
+};
+
 const typeEffect = async (text) => {
   for (const char of text) {
     process.stdout.write(char);
     await sleep(20);
   }
   process.stdout.write('\n');
-};
-
-const uploadToAnonFiles = async (attachment) => {
-  try {
-    const fileBuffer = await axios.get(attachment.url, { responseType: 'arraybuffer' }).then(res => res.data);
-    const form = new FormData();
-    form.append('file', fileBuffer, attachment.name);
-
-    const res = await axios.post('https://api.anonfiles.com/upload', form, {
-      headers: form.getHeaders(),
-      maxContentLength: Infinity,
-      maxBodyLength: Infinity
-    });
-
-    if (res.data.status) {
-      return res.data.data.file.url.full;
-    } else {
-      return `Erro no AnonFiles: ${res.data.error.message}`;
-    }
-  } catch (err) {
-    return `Erro ao enviar AnonFiles: ${err.message}`;
-  }
 };
 
 const titulo = `
@@ -54,9 +37,30 @@ const titulo = `
 `;
 
 const mostrarTitulo = async () => {
-  console.clear();
-  await sleep(1500);
+  await clear();
   console.log(gradient.pastel.multiline(titulo));
+};
+
+const uploadToBayFiles = async (attachment) => {
+  try {
+    const fileBuffer = await axios.get(attachment.url, { responseType: 'arraybuffer' }).then(res => res.data);
+    const form = new FormData();
+    form.append('file', fileBuffer, attachment.name);
+
+    const res = await axios.post('https://api.bayfiles.com/upload', form, {
+      headers: form.getHeaders(),
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity
+    });
+
+    if (res.data.status) {
+      return res.data.data.file.url.full;
+    } else {
+      return `Erro no BayFiles: ${res.data.error.message}`;
+    }
+  } catch (err) {
+    return `Erro ao enviar BayFiles: ${err.message}`;
+  }
 };
 
 (async () => {
@@ -130,8 +134,8 @@ const mostrarTitulo = async () => {
               if (a.size <= 9990000) {
                 content += `\n[Arquivo: ${a.name}] ${a.url}`;
               } else {
-                const anonUrl = await uploadToAnonFiles(a);
-                content += `\n[Upload grande: ${a.name}] ${anonUrl}`;
+                const bayUrl = await uploadToBayFiles(a);
+                content += `\n[Upload grande: ${a.name}] ${bayUrl}`;
               }
             }
           }
