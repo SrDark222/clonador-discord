@@ -4,11 +4,18 @@ const gradient = require('gradient-string');
 const figlet = require('figlet');
 const chalk = require('chalk');
 const util = require('util');
+const axios = require('axios');
+const FormData = require('form-data');
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const ask = q => new Promise(res => rl.question(q, res));
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+const clearWithDelay = async () => {
+  console.clear();
+  await sleep(1500); // espera 1.5 segundos para não bugar ASCII art
+};
 
 const typeEffect = async (text) => {
   for (const char of text) {
@@ -31,13 +38,32 @@ const titulo = `
  :: :: :  : :: : :   : :  :   ::    :   : :: ::    :   : :        :         ::
 `;
 
-const mostrarTitulo = () => {
-  console.clear();
+const mostrarTitulo = async () => {
+  await clearWithDelay();
   console.log(gradient.pastel.multiline(titulo));
 };
 
-async function executarClonagem() {
-  mostrarTitulo();
+// Função para upload no GoFile para arquivos >10MB
+async function uploadGoFile(url, filename) {
+  try {
+    const { data: serverData } = await axios.get('https://api.gofile.io/getServer');
+    const server = serverData.data.server;
+    const response = await axios.get(url, { responseType: 'arraybuffer' });
+    const form = new FormData();
+    form.append('file', Buffer.from(response.data), filename);
+    const { data: uploadData } = await axios.post(`https://${server}.gofile.io/uploadFile`, form, {
+      headers: form.getHeaders()
+    });
+    if (uploadData.status === 'ok') return uploadData.data.downloadPage;
+    else return null;
+  } catch (err) {
+    console.log('Erro no upload GoFile:', err.message);
+    return null;
+  }
+}
+
+(async () => {
+  await mostrarTitulo();
 
   await typeEffect('\n[?] COLE SEU TOKEN: ');
   const token = await ask('');
@@ -59,8 +85,13 @@ async function executarClonagem() {
 
   const client = new Discord.Client();
 
-  client.once('ready', async () => {
-    mostrarTitulo();
+  client.login(token).catch(() => {
+    console.log(gradient.cristal('\n❌ TOKEN INVÁLIDO. ENCERRANDO.'));
+    process.exit();
+  });
+
+  client.on('ready', async () => {
+    await mostrarTitulo();
     console.log(gradient.instagram(`\n[+] SELF BOT LOGADO COMO ${client.user.tag}`));
 
     const origem = await client.guilds.fetch(idServerOrigem).catch(() => null);
@@ -68,8 +99,7 @@ async function executarClonagem() {
 
     if (!origem || !destino) {
       console.log('\n❌ Servidores inválidos.');
-      client.destroy();
-      return executarClonagem();
+      process.exit();
     }
 
     const catOrigem = origem.channels.cache.get(idCategoriaOrigem);
@@ -77,8 +107,7 @@ async function executarClonagem() {
 
     if (!catOrigem || !catDestino) {
       console.log('\n❌ Categorias inválidas.');
-      client.destroy();
-      return executarClonagem();
+      process.exit();
     }
 
     await catDestino.setName(novoNomeCategoriaDestino);
@@ -101,11 +130,15 @@ async function executarClonagem() {
 
           if (msg.attachments.size > 0) {
             for (const a of msg.attachments.values()) {
-              if (a.size <= 9990000) {
-                // Só deixar o link do anexo, sem o "[Arquivo: nome]"
+              if (a.size <= 10 * 1024 * 1024) {
                 content += `\n${a.url}`;
               } else {
-                content += `\n[IGNORADO: ${a.name} acima de 10MB]`;
+                try {
+                  const link = await uploadGoFile(a.url, a.name);
+                  content += `\n${link || '[ERRO NO UPLOAD]'}`
+                } catch {
+                  content += `\n[ERRO AO UPLOAD ARQUIVO GRANDE: ${a.name}]`;
+                }
               }
             }
           }
@@ -126,15 +159,6 @@ async function executarClonagem() {
     }
 
     console.log(gradient.fruit('\n✅ CLONAGEM CONCLUÍDA!'));
-    client.destroy();
-    // Voltar pra tela inicial após clonagem
-    return executarClonagem();
+    process.exit();
   });
-
-  client.login(token).catch(() => {
-    console.log(gradient.cristal('\n❌ TOKEN INVÁLIDO. TENTE NOVAMENTE.'));
-    return executarClonagem();
-  });
-}
-
-executarClonagem();
+})();
