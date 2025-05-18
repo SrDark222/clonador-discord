@@ -5,15 +5,12 @@ const figlet = require('figlet');
 const chalk = require('chalk');
 const axios = require('axios');
 const FormData = require('form-data');
+const fs = require('fs');
+const util = require('util');
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const ask = q => new Promise(res => rl.question(q, res));
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-const clear = async () => {
-  console.clear();
-  await sleep(1500); // delay pra não bugar ASCII
-};
 
 const typeEffect = async (text) => {
   for (const char of text) {
@@ -37,31 +34,32 @@ const titulo = `
 `;
 
 const mostrarTitulo = async () => {
-  await clear();
+  console.clear();
   console.log(gradient.pastel.multiline(titulo));
 };
 
-const uploadToBayFiles = async (attachment) => {
+async function uploadBigFileToGoFile(url, fileName) {
   try {
-    const fileBuffer = await axios.get(attachment.url, { responseType: 'arraybuffer' }).then(res => res.data);
+    const getServer = await axios.get('https://api.gofile.io/getServer');
+    const server = getServer.data.data.server;
     const form = new FormData();
-    form.append('file', fileBuffer, attachment.name);
+    form.append('file', fs.createReadStream(fileName));
 
-    const res = await axios.post('https://api.bayfiles.com/upload', form, {
+    const response = await axios.post(`https://${server}.gofile.io/uploadFile`, form, {
       headers: form.getHeaders(),
-      maxContentLength: Infinity,
-      maxBodyLength: Infinity
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity
     });
 
-    if (res.data.status) {
-      return res.data.data.file.url.full;
+    if (response.data.status === 'ok') {
+      return response.data.data.downloadPage;
     } else {
-      return `Erro no BayFiles: ${res.data.error.message}`;
+      throw new Error(`Erro no upload GoFile: ${JSON.stringify(response.data)}`);
     }
-  } catch (err) {
-    return `Erro ao enviar BayFiles: ${err.message}`;
+  } catch (error) {
+    throw new Error(`Falha upload GoFile: ${error.message}`);
   }
-};
+}
 
 (async () => {
   await mostrarTitulo();
@@ -83,6 +81,10 @@ const uploadToBayFiles = async (attachment) => {
 
   await typeEffect('[?] NOVO NOME DA CATEGORIA DESTINO: ');
   const novoNomeCategoriaDestino = await ask('');
+
+  // Delay após o input para evitar bug ASCII
+  console.clear();
+  await sleep(1500);
 
   const client = new Discord.Client();
 
@@ -121,7 +123,8 @@ const uploadToBayFiles = async (attachment) => {
       try {
         const novoCanal = await destino.channels.create(canal.name, {
           type: canal.type,
-          parent: catDestino.id
+          parent: catDestino.id,
+          topic: canal.topic || ''
         });
 
         const msgs = await canal.messages.fetch({ limit: 50 });
@@ -134,8 +137,32 @@ const uploadToBayFiles = async (attachment) => {
               if (a.size <= 9990000) {
                 content += `\n[Arquivo: ${a.name}] ${a.url}`;
               } else {
-                const bayUrl = await uploadToBayFiles(a);
-                content += `\n[Upload grande: ${a.name}] ${bayUrl}`;
+                // Arquivo maior que 10MB: faz upload no GoFile
+                try {
+                  const tmpPath = `./temp_${a.id}_${a.name}`;
+                  const writer = fs.createWriteStream(tmpPath);
+                  const response = await axios({
+                    url: a.url,
+                    method: 'GET',
+                    responseType: 'stream',
+                  });
+
+                  response.data.pipe(writer);
+
+                  await new Promise((resolve, reject) => {
+                    writer.on('finish', resolve);
+                    writer.on('error', reject);
+                  });
+
+                  const linkUpload = await uploadBigFileToGoFile(a.url, tmpPath);
+
+                  content += `\n[Arquivo grande: ${a.name}] ${linkUpload}`;
+
+                  // Apaga arquivo temporário
+                  fs.unlinkSync(tmpPath);
+                } catch (err) {
+                  content += `\n[ERRO AO UPLOAD ARQUIVO GRANDE: ${a.name}]`;
+                }
               }
             }
           }
