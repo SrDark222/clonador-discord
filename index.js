@@ -8,7 +8,8 @@ const FormData = require('form-data');
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const ask = q => new Promise(res => rl.question(q, res));
-const sleep = ms => new Promise(res => setTimeout(res, ms));
+
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 const typeEffect = async (text) => {
   for (const char of text) {
@@ -33,31 +34,20 @@ const titulo = `
 
 const mostrarTitulo = async () => {
   console.clear();
+  await sleep(1500);
   console.log(gradient.pastel.multiline(titulo));
-  await sleep(1500);  // delay para não bugar ascii
 };
 
-async function uploadFileIO(url, filename) {
-  try {
-    // Baixa arquivo da url
-    const response = await axios.get(url, { responseType: 'arraybuffer' });
+const uploadArquivo = async (buffer, filename) => {
+  const form = new FormData();
+  form.append('file', buffer, filename);
 
-    const form = new FormData();
-    form.append('file', Buffer.from(response.data), filename);
+  const res = await axios.post('https://uguu.se/upload.php', form, {
+    headers: form.getHeaders()
+  });
 
-    // Upload para file.io
-    const { data } = await axios.post('https://file.io/?expires=14d', form, {
-      headers: form.getHeaders(),
-      maxBodyLength: Infinity
-    });
-
-    if (data.success) return data.link;
-    else throw new Error('Upload failed: ' + JSON.stringify(data));
-  } catch (err) {
-    console.error('Erro no upload file.io:', err.message);
-    return null;
-  }
-}
+  return res.data.files[0]; // retorna o link direto
+};
 
 (async () => {
   await mostrarTitulo();
@@ -94,18 +84,12 @@ async function uploadFileIO(url, filename) {
     const origem = await client.guilds.fetch(idServerOrigem).catch(() => null);
     const destino = await client.guilds.fetch(idServerDestino).catch(() => null);
 
-    if (!origem || !destino) {
-      console.log('\n❌ Servidores inválidos.');
-      process.exit();
-    }
+    if (!origem || !destino) return console.log('\n❌ Servidores inválidos.') || process.exit();
 
     const catOrigem = origem.channels.cache.get(idCategoriaOrigem);
     const catDestino = destino.channels.cache.get(idCategoriaDestino);
 
-    if (!catOrigem || !catDestino) {
-      console.log('\n❌ Categorias inválidas.');
-      process.exit();
-    }
+    if (!catOrigem || !catDestino) return console.log('\n❌ Categorias inválidas.') || process.exit();
 
     await catDestino.setName(novoNomeCategoriaDestino);
 
@@ -128,12 +112,15 @@ async function uploadFileIO(url, filename) {
           if (msg.attachments.size > 0) {
             for (const a of msg.attachments.values()) {
               if (a.size <= 9990000) {
-                content += `\n${a.url}`;
+                content += `\n[Arquivo: ${a.name}] ${a.url}`;
               } else {
-                // Faz upload do arquivo grande no file.io
-                const linkFileIO = await uploadFileIO(a.url, a.name);
-                if (linkFileIO) content += `\n${linkFileIO}`;
-                else content += `\n[IGNORADO: ${a.name} >10MB upload falhou]`;
+                try {
+                  const response = await axios.get(a.url, { responseType: 'arraybuffer' });
+                  const link = await uploadArquivo(response.data, a.name);
+                  content += `\n[UPLOADED: ${a.name}] ${link}`;
+                } catch (e) {
+                  content += `\n[ERRO UPLOAD: ${a.name}]`;
+                }
               }
             }
           }
