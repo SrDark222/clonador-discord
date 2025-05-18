@@ -9,44 +9,80 @@ const FormData = require('form-data');
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const ask = q => new Promise(res => rl.question(q, res));
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-const titulo = `
- @@@@@@@  @@@        @@@@@@   @@@  @@@  @@@@@@@@  @@@@@@@      @@@  @@@    @@@
-@@@@@@@@  @@@       @@@@@@@@  @@@@ @@@  @@@@@@@@  @@@@@@@@     @@@  @@@   @@@@
-!@@       @@!       @@!  @@@  @@!@!@@@  @@!       @@!  @@@     @@!  @@@  @@@!!
-!@!       !@!       !@!  !@!  !@!!@!@!  !@!       !@!  !@!     !@!  @!@    !@!
-!@!       @!!       @!@  !@!  @!@ !!@!  @!!!:!    @!@!!@!      @!@  !@!    @!@
-!!!       !!!       !@!  !!!  !@!  !!!  !!!!!:    !!@!@!       !@!  !!!    !@!
-:!!       !!:       !!:  !!!  !!:  !!!  !!:       !!: :!!      :!:  !!:    !!:
-:!:        :!:      :!:  !:!  :!:  !:!  :!:       :!:  !:!      ::!!:!     :!:
- ::: :::   :: ::::  ::::: ::   ::   ::   :: ::::  ::   :::       ::::      :::
- :: :: :  : :: : :   : :  :   ::    :   : :: ::    :   : :        :         ::
+const asciiArt = `
+$$$$$$$\\  $$\\   $$\\ $$$$$$$$\\ $$$$$$\\ $$\\   $$\\             
+$$  __$$\\ $$ | $$  |\\____$$  |\\_$$  _|$$$\\  $$ |            
+$$ |  $$ |$$ |$$  /     $$  /   $$ |  $$$$\\ $$ |            
+$$ |  $$ |$$$$$  /     $$  /    $$ |  $$ $$\\$$ |            
+$$ |  $$ |$$  $$<     $$  /     $$ |  $$ \\$$$$ |            
+$$ |  $$ |$$ |\\$$\\   $$  /      $$ |  $$ |\\$$$ |            
+$$$$$$$  |$$ | \\$$\\ $$$$$$$$\\ $$$$$$\\ $$ | \\$$ |            
+\\_______/ \\__|  \\__|\\________|\\______|\\__|  \\__|            
+                                                            
+                                                            
+                                                            
+                        $$$$$$$\\   $$$$$$\\                  
+                        $$  __$$\\ $$  __$$\\                 
+                        $$ |  $$ |$$ /  $$ |                
+                        $$ |  $$ |$$ |  $$ |                
+                        $$ |  $$ |$$ |  $$ |                
+                        $$ |  $$ |$$ |  $$ |                
+                        $$$$$$$  | $$$$$$  |                
+                        \\_______/  \\______/                 
+                                                            
+                                                            
+                                                            
+                              $$$$$$$\\  $$$$$$\\   $$$$$$\\  
+                              \\__$$  __|$$  __$$\\ $$  __$$\\ 
+                                 $$ |   $$ /  \\__|$$ /  \\__|
+                                 $$ |   $$ |      $$ |      
+                                 $$ |   $$ |      $$ |      
+                                 $$ |   $$ |  $$\\ $$ |  $$\\ 
+                                 $$ |   \\$$$$$$  |\\$$$$$$  |
+                                 \\__|    \\______/  \\______/
 `;
 
 const mostrarTitulo = () => {
   console.clear();
-  console.log(gradient.pastel.multiline(titulo));
+  console.log(gradient.pastel.multiline(asciiArt));
 };
 
-// Tradução usando MyMemory API (free, sem chave)
+// Detecta idioma do texto com LibreTranslate
+async function detectarIdioma(texto) {
+  try {
+    const res = await axios.post('https://libretranslate.de/detect', { q: texto }, { timeout: 10000 });
+    if (res.data && res.data.length > 0) {
+      return res.data[0].language; // ex: 'en', 'fr'
+    }
+    return 'en'; // fallback
+  } catch {
+    return 'en';
+  }
+}
+
+// Tradução usando MyMemory API com idioma detectado e limite de 470 chars
 async function traduzirParaPortugues(texto) {
   if (!texto || texto.trim() === '') return '';
 
+  const textoCortado = texto.length > 470 ? texto.slice(0, 470) : texto;
+
+  const idiomaOrigem = await detectarIdioma(textoCortado);
+
   try {
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(texto)}&langpair=auto|pt`;
-    console.log(chalk.blue('[API] Traduzindo mensagem via MyMemory...'));
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(textoCortado)}&langpair=${idiomaOrigem}|pt`;
+    console.log(chalk.blue(`[API] Traduzindo (${idiomaOrigem} -> pt)...`));
     const res = await axios.get(url, { timeout: 60000 });
     if (res.data && res.data.responseData && res.data.responseData.translatedText) {
-      console.log(chalk.green('[API] Tradução recebida.'));
+      console.log(chalk.green('[API] Tradução OK.'));
       return res.data.responseData.translatedText;
     } else {
       console.log(chalk.red('[API] Resposta inválida da tradução.'));
-      return texto;
+      return textoCortado;
     }
   } catch (err) {
     console.log(chalk.red(`[API] Erro na tradução: ${err.message}`));
-    return texto;
+    return textoCortado;
   }
 }
 
@@ -74,7 +110,7 @@ async function uploadBigFileToCatbox(filePath) {
   }
 }
 
-// Baixa o arquivo e sobe pro catbox
+// Baixa e sobe pro catbox
 async function downloadAndUploadFile(attachment) {
   const tmpPath = `./temp_${attachment.id}_${attachment.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
   try {
@@ -94,9 +130,7 @@ async function downloadAndUploadFile(attachment) {
     });
 
     const link = await uploadBigFileToCatbox(tmpPath);
-
     fs.unlinkSync(tmpPath);
-
     return link;
   } catch (error) {
     if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
@@ -104,41 +138,15 @@ async function downloadAndUploadFile(attachment) {
   }
 }
 
-// Função para substituir tags de canal na mensagem pelo novo ID do canal clonado
-function substituirTagsCanal(mensagem, mapaCanais) {
-  // Regex para achar tags do tipo #nome-do-canal (mentions podem variar, esse é mais simples)
-  // O formato exato depende do padrão usado, aqui assumo que é #nomeDoCanal mesmo, sem <>
-  // Se for menção de canal no Discord, elas vem assim: <#ID>
-  // O correto é trocar menções no formato <#ID> pelo novo ID
-  // Então vamos trocar todas as menções <#ID> que existam
-  return mensagem.replace(/<#(\d+)>/g, (match, id) => {
-    if (mapaCanais[id]) {
-      return `<#${mapaCanais[id]}>`;
-    }
-    return match;
-  });
-}
-
 (async () => {
   mostrarTitulo();
 
-  console.log('\n[?] COLE SEU TOKEN: ');
-  const token = await ask('');
-
-  console.log('[?] ID DO SERVIDOR DE ORIGEM: ');
-  const idServerOrigem = await ask('');
-
-  console.log('[?] ID DA CATEGORIA DE ORIGEM: ');
-  const idCategoriaOrigem = await ask('');
-
-  console.log('[?] ID DO SERVIDOR DESTINO: ');
-  const idServerDestino = await ask('');
-
-  console.log('[?] ID DA CATEGORIA DESTINO: ');
-  const idCategoriaDestino = await ask('');
-
-  console.log('[?] NOVO NOME DA CATEGORIA DESTINO: ');
-  const novoNomeCategoriaDestino = await ask('');
+  const token = await ask('\n[?] COLE SEU TOKEN: ');
+  const idServerOrigem = await ask('[?] ID DO SERVIDOR DE ORIGEM: ');
+  const idCategoriaOrigem = await ask('[?] ID DA CATEGORIA DE ORIGEM: ');
+  const idServerDestino = await ask('[?] ID DO SERVIDOR DESTINO: ');
+  const idCategoriaDestino = await ask('[?] ID DA CATEGORIA DESTINO: ');
+  const novoNomeCategoriaDestino = await ask('[?] NOVO NOME DA CATEGORIA DESTINO: ');
 
   const client = new Discord.Client();
 
@@ -173,9 +181,6 @@ function substituirTagsCanal(mensagem, mapaCanais) {
       console.log(chalk.red('\n❌ Falha ao renomear categoria destino.'));
     }
 
-    // Mapear canais originais para canais novos para trocar IDs nas tags
-    const mapaCanais = {};
-
     const canais = origem.channels.cache
       .filter(c => c.parentId === idCategoriaOrigem)
       .sort((a, b) => a.position - b.position);
@@ -186,9 +191,6 @@ function substituirTagsCanal(mensagem, mapaCanais) {
           type: canal.type,
           parent: catDestino.id,
         });
-
-        mapaCanais[canal.id] = novoCanal.id;
-
         console.log(gradient.vice(`[>] Clonando canal: ${canal.name}`));
 
         const msgs = await canal.messages.fetch({ limit: 50 });
@@ -196,48 +198,21 @@ function substituirTagsCanal(mensagem, mapaCanais) {
         for (const msg of msgs.reverse().values()) {
           let content = msg.content || '';
 
-          // Substituir tags de canal pelo novo ID
-          content = substituirTagsCanal(content, mapaCanais);
+          // Substitui tags tipo #123456789012345678 pelo novo ID do canal
+          content = content.replace(/#(\d{17,19})/g, `#${novoCanal.id}`);
 
+          // Traduz o conteúdo limitado a 470 caracteres
+          const traducao = await traduzirParaPortugues(content);
+
+          // Se mensagem tem anexos
           if (msg.attachments.size > 0) {
             for (const a of msg.attachments.values()) {
               if (a.size <= 9990000) {
+                // Link direto pequeno
                 content += `\n[${a.name}](${a.url})`;
               } else {
+                // Arquivo grande, upload no catbox
                 try {
                   const linkUpload = await downloadAndUploadFile(a);
                   content += `\n[${a.name}](${linkUpload})`;
-                } catch (err) {
-                  content += `\nERRO AO UPLOAD ARQUIVO GRANDE: ${err.message}`;
-                }
-              }
-            }
-          }
-
-          // Limitar mensagem para até 470 caracteres para evitar erro API
-          if (content.length > 470) {
-            content = content.slice(0, 470) + '...';
-          }
-
-          // Tradução com logs e retry
-          const conteudoTraduzido = await traduzirParaPortugues(content);
-
-          try {
-            await novoCanal.send(conteudoTraduzido || '[mensagem vazia]');
-            console.log(gradient.morning(`[+1] ${canal.name}: Mensagem clonada e traduzida`));
-          } catch (err) {
-            console.log(gradient.passion(`[-] Erro ao enviar mensagem: ${err.message}`));
-          }
-
-          await sleep(1500);
-        }
-
-      } catch (err) {
-        console.log(gradient.summer(`[-] Falha ao clonar canal ${canal.name}: ${err.message}`));
-      }
-    }
-
-    console.log(gradient.fruit('\n✅ CLONAGEM E TRADUÇÃO CONCLUÍDAS!'));
-    process.exit();
-  });
-})();
+     }
