@@ -3,14 +3,12 @@ const readline = require('readline');
 const gradient = require('gradient-string');
 const figlet = require('figlet');
 const chalk = require('chalk');
-const util = require('util');
 const axios = require('axios');
 const FormData = require('form-data');
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const ask = q => new Promise(res => rl.question(q, res));
-
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = ms => new Promise(res => setTimeout(res, ms));
 
 const typeEffect = async (text) => {
   for (const char of text) {
@@ -33,46 +31,36 @@ const titulo = `
  :: :: :  : :: : :   : :  :   ::    :   : :: ::    :   : :        :         ::
 `;
 
-const mostrarTitulo = () => {
+const mostrarTitulo = async () => {
   console.clear();
   console.log(gradient.pastel.multiline(titulo));
+  await sleep(1500);  // delay para não bugar ascii
 };
 
-// Função para upload no GoFile corrigida para não dar erro 404
-async function uploadGoFile(url, filename) {
+async function uploadFileIO(url, filename) {
   try {
-    // Pega o servidor dinâmico do GoFile
-    const { data: serverData } = await axios.get('https://api.gofile.io/getServer');
-    if (!serverData.data || !serverData.data.server) throw new Error('Servidor GoFile não encontrado');
-
-    const server = serverData.data.server;
-
-    // Baixa o arquivo da URL original
+    // Baixa arquivo da url
     const response = await axios.get(url, { responseType: 'arraybuffer' });
 
-    // Prepara o form para upload
     const form = new FormData();
     form.append('file', Buffer.from(response.data), filename);
 
-    // Faz upload no servidor correto
-    const { data: uploadData } = await axios.post(`https://${server}.gofile.io/uploadFile`, form, {
+    // Upload para file.io
+    const { data } = await axios.post('https://file.io/?expires=14d', form, {
       headers: form.getHeaders(),
-      maxBodyLength: Infinity,
+      maxBodyLength: Infinity
     });
 
-    if (uploadData.status === 'ok') {
-      return uploadData.data.downloadPage; // link para a página de download
-    } else {
-      throw new Error('Falha no upload: ' + JSON.stringify(uploadData));
-    }
+    if (data.success) return data.link;
+    else throw new Error('Upload failed: ' + JSON.stringify(data));
   } catch (err) {
-    console.error('Erro no upload GoFile:', err.message);
+    console.error('Erro no upload file.io:', err.message);
     return null;
   }
 }
 
 (async () => {
-  mostrarTitulo();
+  await mostrarTitulo();
 
   await typeEffect('\n[?] COLE SEU TOKEN: ');
   const token = await ask('');
@@ -100,7 +88,7 @@ async function uploadGoFile(url, filename) {
   });
 
   client.on('ready', async () => {
-    mostrarTitulo();
+    await mostrarTitulo();
     console.log(gradient.instagram(`\n[+] SELF BOT LOGADO COMO ${client.user.tag}`));
 
     const origem = await client.guilds.fetch(idServerOrigem).catch(() => null);
@@ -140,16 +128,12 @@ async function uploadGoFile(url, filename) {
           if (msg.attachments.size > 0) {
             for (const a of msg.attachments.values()) {
               if (a.size <= 9990000) {
-                // Arquivos menores que ~10MB são enviados normalmente com link original
                 content += `\n${a.url}`;
               } else {
-                // Para arquivos acima de 10MB, faz upload no GoFile e coloca o link
-                const linkGoFile = await uploadGoFile(a.url, a.name);
-                if (linkGoFile) {
-                  content += `\n${linkGoFile}`;
-                } else {
-                  content += `\n[IGNORADO: ${a.name} acima de 10MB e falha no upload]`;
-                }
+                // Faz upload do arquivo grande no file.io
+                const linkFileIO = await uploadFileIO(a.url, a.name);
+                if (linkFileIO) content += `\n${linkFileIO}`;
+                else content += `\n[IGNORADO: ${a.name} >10MB upload falhou]`;
               }
             }
           }
