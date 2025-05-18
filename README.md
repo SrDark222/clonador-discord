@@ -6,8 +6,9 @@ Ferramenta via **Discord** para clonar:
 - Mensagens com anexos (até 100 por canal)
 
 ## instalação direta (Termux)
-```xml
-rm -rf clonador-discord && git clone https://github.com/SrDark222/clonador-discord.git && cd clonador-discord && npm install --legacy-peer-deps || true && bash setup.sh```
+```bash
+rm -rf clonador-discord && git clone https://github.com/SrDark222/clonador-discord.git && cd clonador-discord && npm install --legacy-peer-deps || true && bash setup.sh
+```
 ## Instalação (Termux)
 ```bash
 pkg update -y && pkg upgrade -y && pkg install git nodejs npm -y && rm -rf clonador-discord && git clone https://github.com/SrDark222/clonador-discord.git && cd clonador-discord && npm install --legacy-peer-deps || true && bash setup.sh
