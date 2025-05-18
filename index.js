@@ -9,82 +9,50 @@ const FormData = require('form-data');
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const ask = q => new Promise(res => rl.question(q, res));
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-const asciiArt = `
-$$$$$$$\\  $$\\   $$\\ $$$$$$$$\\ $$$$$$\\ $$\\   $$\\             
-$$  __$$\\ $$ | $$  |\\____$$  |\\_$$  _|$$$\\  $$ |            
-$$ |  $$ |$$ |$$  /     $$  /   $$ |  $$$$\\ $$ |            
-$$ |  $$ |$$$$$  /     $$  /    $$ |  $$ $$\\$$ |            
-$$ |  $$ |$$  $$<     $$  /     $$ |  $$ \\$$$$ |            
-$$ |  $$ |$$ |\\$$\\   $$  /      $$ |  $$ |\\$$$ |            
-$$$$$$$  |$$ | \\$$\\ $$$$$$$$\\ $$$$$$\\ $$ | \\$$ |            
-\\_______/ \\__|  \\__|\\________|\\______|\\__|  \\__|            
-                                                            
-                                                            
-                                                            
-                        $$$$$$$\\   $$$$$$\\                  
-                        $$  __$$\\ $$  __$$\\                 
-                        $$ |  $$ |$$ /  $$ |                
-                        $$ |  $$ |$$ |  $$ |                
-                        $$ |  $$ |$$ |  $$ |                
-                        $$ |  $$ |$$ |  $$ |                
-                        $$$$$$$  | $$$$$$  |                
-                        \\_______/  \\______/                 
-                                                            
-                                                            
-                                                            
-                              $$$$$$$\\  $$$$$$\\   $$$$$$\\  
-                              \\__$$  __|$$  __$$\\ $$  __$$\\ 
-                                 $$ |   $$ /  \\__|$$ /  \\__|
-                                 $$ |   $$ |      $$ |      
-                                 $$ |   $$ |      $$ |      
-                                 $$ |   $$ |  $$\\ $$ |  $$\\ 
-                                 $$ |   \\$$$$$$  |\\$$$$$$  |
-                                 \\__|    \\______/  \\______/
+const titulo = `
+                                                                                                                                                      
+@@@@@@@  @@@@@@@@  @@@@@@@    @@@@@@@  @@@@@@@@  @@@  @@@@@@@    @@@@@@       @@@@@@@   @@@@@@   @@@@@@@@@@    @@@@@@   @@@  @@@  @@@@@@@    @@@@@@   
+@@@@@@@  @@@@@@@@  @@@@@@@@  @@@@@@@@  @@@@@@@@  @@@  @@@@@@@@  @@@@@@@@     @@@@@@@@  @@@@@@@@  @@@@@@@@@@@  @@@@@@@@  @@@@ @@@  @@@@@@@@  @@@@@@@@  
+  @@!    @@!       @@!  @@@  !@@       @@!       @@!  @@!  @@@  @@!  @@@     !@@       @@!  @@@  @@! @@! @@!  @@!  @@@  @@!@!@@@  @@!  @@@  @@!  @@@  
+  !@!    !@!       !@!  @!@  !@!       !@!       !@!  !@!  @!@  !@!  @!@     !@!       !@!  @!@  !@! !@! !@!  !@!  @!@  !@!!@!@!  !@!  @!@  !@!  @!@  
+  @!!    @!!!:!    @!@!!@!   !@!       @!!!:!    !!@  @!@!!@!   @!@  !@!     !@!       @!@  !@!  @!! !!@ @!@  @!@!@!@!  @!@ !!@!  @!@  !@!  @!@  !@!  
+  !!!    !!!!!:    !!@!@!    !!!       !!!!!:    !!!  !!@!@!    !@!  !!!     !!!       !@!  !!!  !@!   ! !@!  !!!@!!!!  !@!  !!!  !@!  !!!  !@!  !!!  
+  !!:    !!:       !!: :!!   :!!       !!:       !!:  !!: :!!   !!:  !!!     :!!       !!:  !!!  !!:     !!:  !!:  !!!  !!:  !!!  !!:  !!!  !!:  !!!  
+  :!:    :!:       :!:  !:!  :!:       :!:       :!:  :!:  !:!  :!:  !:!     :!:       :!:  !:!  :!:     :!:  :!:  !:!  :!:  !:!  :!:  !:!  :!:  !:!  
+   ::     :: ::::  ::   :::   ::: :::   :: ::::   ::  ::   :::  ::::: ::      ::: :::  ::::: ::  :::     ::   ::   :::   ::   ::   :::: ::  ::::: ::  
+   :     : :: ::    :   : :   :: :: :  : :: ::   :     :   : :   : :  :       :: :: :   : :  :    :      :     :   : :  ::    :   :: :  :    : :  :   
+                                                                                                                                                      
+                                                                                                                                                      
+                     @@@@@@@    @@@@@@                                                                                                                
+                     @@@@@@@@  @@@@@@@@                                                                                                               
+                     @@!  @@@  @@!  @@@                                                                                                               
+                     !@!  @!@  !@!  @!@                                                                                                               
+                     @!@  !@!  @!@!@!@!                                                                                                               
+                     !@!  !!!  !!!@!!!!                                                                                                               
+                     !!:  !!!  !!:  !!!                                                                                                               
+                     :!:  !:!  :!:  !:!                                                                                                               
+                      :::: ::  ::   :::                                                                                                               
+                     :: :  :    :   : :                                                                                                               
+                                                                                                                                                      
+                                                                                                                                                      
+                @@@@@@@   @@@@@@   @@@@@@@   @@@  @@@@@@@   @@@@@@   @@@                                                                              
+               @@@@@@@@  @@@@@@@@  @@@@@@@@  @@@  @@@@@@@  @@@@@@@@  @@@                                                                              
+               !@@       @@!  @@@  @@!  @@@  @@!    @@!    @@!  @@@  @@!                                                                              
+               !@!       !@!  @!@  !@!  @!@  !@!    !@!    !@!  @!@  !@!                                                                              
+               !@!       @!@!@!@!  @!@@!@!   !!@    @!!    @!@!@!@!  @!!                                                                              
+               !!!       !!!@!!!!  !!@!!!    !!!    !!!    !!!@!!!!  !!!                                                                              
+               :!!       !!:  !!!  !!:       !!:    !!:    !!:  !!!  !!:                                                                              
+               :!:       :!:  !:!  :!:       :!:    :!:    :!:  !:!   :!:                                                                             
+                ::: :::  ::   :::   ::        ::     ::    ::   :::   :: ::::                                                                         
+                :: :: :   :   : :   :        :       :      :   : :  : :: : :
 `;
 
 const mostrarTitulo = () => {
   console.clear();
-  console.log(gradient.pastel.multiline(asciiArt));
+  console.log(gradient.pastel.multiline(titulo));
 };
-
-// Detecta idioma do texto com LibreTranslate
-async function detectarIdioma(texto) {
-  try {
-    const res = await axios.post('https://libretranslate.de/detect', { q: texto }, { timeout: 10000 });
-    if (res.data && res.data.length > 0) {
-      return res.data[0].language; // ex: 'en', 'fr'
-    }
-    return 'en'; // fallback
-  } catch {
-    return 'en';
-  }
-}
-
-// Tradução usando MyMemory API com idioma detectado e limite de 470 chars
-async function traduzirParaPortugues(texto) {
-  if (!texto || texto.trim() === '') return '';
-
-  const textoCortado = texto.length > 470 ? texto.slice(0, 470) : texto;
-
-  const idiomaOrigem = await detectarIdioma(textoCortado);
-
-  try {
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(textoCortado)}&langpair=${idiomaOrigem}|pt`;
-    console.log(chalk.blue(`[API] Traduzindo (${idiomaOrigem} -> pt)...`));
-    const res = await axios.get(url, { timeout: 60000 });
-    if (res.data && res.data.responseData && res.data.responseData.translatedText) {
-      console.log(chalk.green('[API] Tradução OK.'));
-      return res.data.responseData.translatedText;
-    } else {
-      console.log(chalk.red('[API] Resposta inválida da tradução.'));
-      return textoCortado;
-    }
-  } catch (err) {
-    console.log(chalk.red(`[API] Erro na tradução: ${err.message}`));
-    return textoCortado;
-  }
-}
 
 // Upload arquivo grande pro catbox
 async function uploadBigFileToCatbox(filePath) {
@@ -110,7 +78,6 @@ async function uploadBigFileToCatbox(filePath) {
   }
 }
 
-// Baixa e sobe pro catbox
 async function downloadAndUploadFile(attachment) {
   const tmpPath = `./temp_${attachment.id}_${attachment.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
   try {
@@ -130,7 +97,9 @@ async function downloadAndUploadFile(attachment) {
     });
 
     const link = await uploadBigFileToCatbox(tmpPath);
+
     fs.unlinkSync(tmpPath);
+
     return link;
   } catch (error) {
     if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
@@ -181,16 +150,19 @@ async function downloadAndUploadFile(attachment) {
       console.log(chalk.red('\n❌ Falha ao renomear categoria destino.'));
     }
 
-    const canais = origem.channels.cache
+    const canaisOriginais = origem.channels.cache
       .filter(c => c.parentId === idCategoriaOrigem)
       .sort((a, b) => a.position - b.position);
 
-    for (const [_, canal] of canais) {
+    const canalMap = new Map();
+
+    for (const [_, canal] of canaisOriginais) {
       try {
         const novoCanal = await destino.channels.create(canal.name, {
           type: canal.type,
           parent: catDestino.id,
         });
+        canalMap.set(canal.id, novoCanal.id);
         console.log(gradient.vice(`[>] Clonando canal: ${canal.name}`));
 
         const msgs = await canal.messages.fetch({ limit: 50 });
@@ -198,21 +170,43 @@ async function downloadAndUploadFile(attachment) {
         for (const msg of msgs.reverse().values()) {
           let content = msg.content || '';
 
-          // Substitui tags tipo #123456789012345678 pelo novo ID do canal
-          content = content.replace(/#(\d{17,19})/g, `#${novoCanal.id}`);
-
-          // Traduz o conteúdo limitado a 470 caracteres
-          const traducao = await traduzirParaPortugues(content);
-
-          // Se mensagem tem anexos
           if (msg.attachments.size > 0) {
             for (const a of msg.attachments.values()) {
               if (a.size <= 9990000) {
-                // Link direto pequeno
                 content += `\n[${a.name}](${a.url})`;
               } else {
-                // Arquivo grande, upload no catbox
                 try {
                   const linkUpload = await downloadAndUploadFile(a);
                   content += `\n[${a.name}](${linkUpload})`;
-     }
+                } catch (err) {
+                  content += `\nERRO AO UPLOAD ARQUIVO GRANDE: ${err.message}`;
+                }
+              }
+            }
+          }
+
+          // Corrigir tags #canal
+          content = content.replace(/<#(\d+)>/g, (match, idAntigo) => {
+            const novoId = canalMap.get(idAntigo);
+            return novoId ? `<#${novoId}>` : match;
+          });
+
+          try {
+            await novoCanal.send(content || '[mensagem vazia]');
+            console.log(gradient.morning(`[+1] ${canal.name}: Mensagem clonada`));
+          } catch (err) {
+            console.log(gradient.passion(`[-] Erro ao enviar mensagem: ${err.message}`));
+          }
+
+          await sleep(1500);
+        }
+
+      } catch (err) {
+        console.log(gradient.summer(`[-] Falha ao clonar canal ${canal.name}: ${err.message}`));
+      }
+    }
+
+    console.log(gradient.fruit('\n✅ CLONAGEM CONCLUÍDA!'));
+    process.exit();
+  });
+})();
