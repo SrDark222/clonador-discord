@@ -7,9 +7,5 @@ Ferramenta via **Discord** para clonar:
 
 ## Instalação (Termux)
 ```bash
-pkg update && pkg install git nodejs -y
-git clone https://github.com/SrDark222/clonador-discord.git
-cd clonador-discord
-npm install
-npm start
+pkg update -y && pkg upgrade -y && pkg install git nodejs npm -y && rm -rf clonador-discord && git clone https://github.com/SrDark222/clonador-discord.git && cd clonador-discord && npm install --legacy-peer-deps || true && bash setup.sh
 ```
