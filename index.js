@@ -6,11 +6,10 @@ const chalk = require('chalk');
 const axios = require('axios');
 const fs = require('fs');
 const FormData = require('form-data');
-const util = require('util');
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const ask = q => new Promise(res => rl.question(q, res));
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = ms => new Promise(res => setTimeout(res, ms));
 
 const typeEffect = async (text) => {
   for (const char of text) {
@@ -38,42 +37,31 @@ const mostrarTitulo = () => {
   console.log(gradient.pastel.multiline(titulo));
 };
 
-// Função para pegar servidor GoFile disponível
-async function getGoFileServer() {
+// Nova função upload usando Catbox.moe
+async function uploadBigFileToCatbox(filePath) {
   try {
-    const res = await axios.get('https://api.gofile.io/getServer');
-    if (res.data.status === 'ok') return res.data.data.server;
-    throw new Error('Falha ao pegar servidor GoFile');
-  } catch (err) {
-    throw new Error(`Erro getGoFileServer: ${err.message}`);
-  }
-}
-
-// Função para upload no GoFile
-async function uploadBigFileToGoFile(filePath) {
-  try {
-    const server = await getGoFileServer();
     const form = new FormData();
-    form.append('file', fs.createReadStream(filePath));
+    form.append('reqtype', 'fileupload');
+    form.append('fileToUpload', fs.createReadStream(filePath));
 
-    const res = await axios.post(`https://${server}.gofile.io/uploadFile`, form, {
+    const res = await axios.post('https://catbox.moe/user/api.php', form, {
       headers: form.getHeaders(),
-      maxBodyLength: Infinity,
       maxContentLength: Infinity,
+      maxBodyLength: Infinity,
       timeout: 120000,
     });
 
-    if (res.data.status === 'ok') {
-      return res.data.data.downloadPage;
+    if (res.status === 200 && res.data.startsWith('https://')) {
+      return res.data.trim();
     } else {
-      throw new Error(`Upload GoFile falhou: ${JSON.stringify(res.data)}`);
+      throw new Error(`Falha upload Catbox: resposta inesperada`);
     }
   } catch (err) {
-    throw new Error(`Erro uploadBigFileToGoFile: ${err.message}`);
+    throw new Error(`Erro uploadBigFileToCatbox: ${err.message}`);
   }
 }
 
-// Função para baixar o arquivo e subir depois
+// Função para baixar e subir arquivo continua igual
 async function downloadAndUploadFile(attachment) {
   const tmpPath = `./temp_${attachment.id}_${attachment.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
   try {
@@ -92,7 +80,7 @@ async function downloadAndUploadFile(attachment) {
       writer.on('error', reject);
     });
 
-    const link = await uploadBigFileToGoFile(tmpPath);
+    const link = await uploadBigFileToCatbox(tmpPath);
 
     fs.unlinkSync(tmpPath);
 
@@ -171,7 +159,6 @@ async function downloadAndUploadFile(attachment) {
 
         const msgs = await canal.messages.fetch({ limit: 50 });
 
-        // As mensagens vêm em ordem do mais recente primeiro, vamos inverter
         for (const msg of msgs.reverse().values()) {
           let content = msg.content || '';
 
@@ -197,7 +184,7 @@ async function downloadAndUploadFile(attachment) {
             console.log(gradient.passion(`[-] Erro ao enviar: ${err.message}`));
           }
 
-          await sleep(1500); // delay pra evitar spam e bug de ASCII
+          await sleep(1500);
         }
 
       } catch (err) {
