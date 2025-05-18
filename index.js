@@ -29,23 +29,27 @@ const mostrarTitulo = () => {
   console.log(gradient.pastel.multiline(titulo));
 };
 
-// API tradução via LibreTranslate
+// Função com log para tradução via LibreTranslate
 async function traduzirParaPortugues(texto) {
   if (!texto || texto.trim() === '') return '';
 
   try {
+    console.log(chalk.blue('[API] Traduzindo mensagem...'));
     const res = await axios.post('https://libretranslate.de/translate', {
       q: texto,
       source: 'auto',
       target: 'pt',
       format: 'text'
     }, {
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 15000 // 15 segundos
     });
 
+    console.log(chalk.green('[API] Tradução recebida.'));
     return res.data.translatedText;
   } catch (err) {
-    // Se der erro na tradução, retorna o texto original para não travar
+    console.log(chalk.red(`[API] Erro na tradução: ${err.message}`));
+    // Se erro, retorna texto original para não travar
     return texto;
   }
 }
@@ -172,7 +176,6 @@ async function downloadAndUploadFile(attachment) {
 
         const msgs = await canal.messages.fetch({ limit: 50 });
 
-        // Mensagens do mais velho para o mais novo
         for (const msg of msgs.reverse().values()) {
           let content = msg.content || '';
 
@@ -191,14 +194,14 @@ async function downloadAndUploadFile(attachment) {
             }
           }
 
-          // Traduz o conteúdo antes de enviar
+          // Tradução com logs
           const conteudoTraduzido = await traduzirParaPortugues(content);
 
           try {
             await novoCanal.send(conteudoTraduzido || '[mensagem vazia]');
             console.log(gradient.morning(`[+1] ${canal.name}: Mensagem clonada e traduzida`));
           } catch (err) {
-            console.log(gradient.passion(`[-] Erro ao enviar: ${err.message}`));
+            console.log(gradient.passion(`[-] Erro ao enviar mensagem: ${err.message}`));
           }
 
           await sleep(1500);
