@@ -110,13 +110,13 @@ async function downloadAndUploadFile(attachment) {
 
     try { await catDestino.setName(novoNomeCategoriaDestino); } catch {}
 
-    const canais = origem.channels.cache
+    const canais = [...origem.channels.cache
       .filter(c => c.parentId === idCategoriaOrigem)
-      .sort((a, b) => a.position - b.position);
+      .sort((a, b) => a.rawPosition - b.rawPosition).values()];
 
     const mapaCanais = new Map();
 
-    for (const [_, canal] of canais) {
+    for (const canal of canais) {
       try {
         const novoCanal = await destino.channels.create(canal.name, {
           type: canal.type,
@@ -130,39 +130,41 @@ async function downloadAndUploadFile(attachment) {
         mapaCanais.set(canal.id, novoCanal.id);
         console.log(gradient.vice(`[>] Clonando canal: ${canal.name}`));
 
-        const msgs = await canal.messages.fetch({ limit: 50 });
+        if (canal.type === Discord.ChannelType.GuildText) {
+          const msgs = await canal.messages.fetch({ limit: 50 });
 
-        for (const msg of msgs.reverse().values()) {
-          let content = msg.content || '';
+          for (const msg of [...msgs.values()].reverse()) {
+            let content = msg.content || '';
 
-          content = content.replace(/<#(\d+)>/g, (match, oldId) => {
-            const novoId = mapaCanais.get(oldId);
-            return novoId ? `<#${novoId}>` : match;
-          });
+            content = content.replace(/<#(\d+)>/g, (match, oldId) => {
+              const novoId = mapaCanais.get(oldId);
+              return novoId ? `<#${novoId}>` : match;
+            });
 
-          if (msg.attachments.size > 0) {
-            for (const a of msg.attachments.values()) {
-              if (a.size <= 9990000) {
-                content += `\n[${a.name}](${a.url})`;
-              } else {
-                try {
-                  const linkUpload = await downloadAndUploadFile(a);
-                  content += `\n[${a.name}](${linkUpload})`;
-                } catch (err) {
-                  content += `\nERRO AO UPLOAD ARQUIVO GRANDE: ${err.message}`;
+            if (msg.attachments.size > 0) {
+              for (const a of msg.attachments.values()) {
+                if (a.size <= 9990000) {
+                  content += `\n[${a.name}](${a.url})`;
+                } else {
+                  try {
+                    const linkUpload = await downloadAndUploadFile(a);
+                    content += `\n[${a.name}](${linkUpload})`;
+                  } catch (err) {
+                    content += `\nERRO AO UPLOAD ARQUIVO GRANDE: ${err.message}`;
+                  }
                 }
               }
             }
-          }
 
-          try {
-            await novoCanal.send(content || '[mensagem vazia]');
-            console.log(gradient.morning(`[+1] ${canal.name}: Mensagem clonada`));
-          } catch (err) {
-            console.log(gradient.passion(`[-] Erro ao enviar mensagem: ${err.message}`));
-          }
+            try {
+              await novoCanal.send(content || '[mensagem vazia]');
+              console.log(gradient.morning(`[+1] ${canal.name}: Mensagem clonada`));
+            } catch (err) {
+              console.log(gradient.passion(`[-] Erro ao enviar mensagem: ${err.message}`));
+            }
 
-          await sleep(1500);
+            await sleep(1500);
+          }
         }
 
       } catch (err) {
