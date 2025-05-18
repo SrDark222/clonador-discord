@@ -12,36 +12,16 @@ const ask = q => new Promise(res => rl.question(q, res));
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 const titulo = `
-$$$$$$$$\ $$$$$$$$\ $$$$$$$\   $$$$$$\  $$$$$$$$\ $$$$$$\ $$$$$$$\   $$$$$$\         $$$$$$\   $$$$$$\  $$\      $$\  $$$$$$\  $$\   $$\ $$$$$$$\   $$$$$$\  
-\__$$  __|$$  _____|$$  __$$\ $$  __$$\ $$  _____|\_$$  _|$$  __$$\ $$  __$$\       $$  __$$\ $$  __$$\ $$$\    $$$ |$$  __$$\ $$$\  $$ |$$  __$$\ $$  __$$\ 
-   $$ |   $$ |      $$ |  $$ |$$ /  \__|$$ |        $$ |  $$ |  $$ |$$ /  $$ |      $$ /  \__|$$ /  $$ |$$$$\  $$$$ |$$ /  $$ |$$$$\ $$ |$$ |  $$ |$$ /  $$ |
-   $$ |   $$$$$\    $$$$$$$  |$$ |      $$$$$\      $$ |  $$$$$$$  |$$ |  $$ |      $$ |      $$ |  $$ |$$\$$\$$ $$ |$$$$$$$$ |$$ $$\$$ |$$ |  $$ |$$ |  $$ |
-   $$ |   $$  __|   $$  __$$< $$ |      $$  __|     $$ |  $$  __$$< $$ |  $$ |      $$ |      $$ |  $$ |$$ \$$$  $$ |$$  __$$ |$$ \$$$$ |$$ |  $$ |$$ |  $$ |
-   $$ |   $$ |      $$ |  $$ |$$ |  $$\ $$ |        $$ |  $$ |  $$ |$$ |  $$ |      $$ |  $$\ $$ |  $$ |$$ |\$  /$$ |$$ |  $$ |$$ |\$$$ |$$ |  $$ |$$ |  $$ |
-   $$ |   $$$$$$$$\ $$ |  $$ |\$$$$$$  |$$$$$$$$\ $$$$$$\ $$ |  $$ | $$$$$$  |      \$$$$$$  | $$$$$$  |$$ | \_/ $$ |$$ |  $$ |$$ | \$$ |$$$$$$$  | $$$$$$  |
-   \__|   \________|\__|  \__| \______/ \________|\______|\__|  \__| \______/        \______/  \______/ \__|     \__|\__|  \__|\__|  \__|\_______/  \______/ 
-                                                                                                                                                             
-                                                                                                                                                             
-                                                                                                                                                             
-                                          $$$$$$$\   $$$$$$\                                                                                                 
-                                          $$  __$$\ $$  __$$\                                                                                                
-                                          $$ |  $$ |$$ /  $$ |                                                                                               
-                                          $$ |  $$ |$$$$$$$$ |                                                                                               
-                                          $$ |  $$ |$$  __$$ |                                                                                               
-                                          $$ |  $$ |$$ |  $$ |                                                                                               
-                                          $$$$$$$  |$$ |  $$ |                                                                                               
-                                          \_______/ \__|  \__|                                                                                               
-                                                                                                                                                             
-                                                                                                                                                             
-                                                                                                                                                             
-                               $$$$$$\   $$$$$$\  $$$$$$$\ $$$$$$\ $$$$$$$$\  $$$$$$\  $$\                                                                   
-                              $$  __$$\ $$  __$$\ $$  __$$\\_$$  _|\__$$  __|$$  __$$\ $$ |                                                                  
-                              $$ /  \__|$$ /  $$ |$$ |  $$ | $$ |     $$ |   $$ /  $$ |$$ |                                                                  
-                              $$ |      $$$$$$$$ |$$$$$$$  | $$ |     $$ |   $$$$$$$$ |$$ |                                                                  
-                              $$ |      $$  __$$ |$$  ____/  $$ |     $$ |   $$  __$$ |$$ |                                                                  
-                              $$ |  $$\ $$ |  $$ |$$ |       $$ |     $$ |   $$ |  $$ |$$ |                                                                  
-                              \$$$$$$  |$$ |  $$ |$$ |     $$$$$$\    $$ |   $$ |  $$ |$$$$$$$$\                                                             
-                               \______/ \__|  \__|\__|     \______|   \__|   \__|  \__|\________|
+ @@@@@@@  @@@        @@@@@@   @@@  @@@  @@@@@@@@  @@@@@@@      @@@  @@@    @@@
+@@@@@@@@  @@@       @@@@@@@@  @@@@ @@@  @@@@@@@@  @@@@@@@@     @@@  @@@   @@@@
+!@@       @@!       @@!  @@@  @@!@!@@@  @@!       @@!  @@@     @@!  @@@  @@@!!
+!@!       !@!       !@!  @!@  !@!!@!@!  !@!       !@!  !@!     !@!  @!@    !@!
+!@!       @!!       @!@  !@!  @!@ !!@!  @!!!:!    @!@!!@!      @!@  !@!    @!@
+!!!       !!!       !@!  !!!  !@!  !!!  !!!!!:    !!@!@!       !@!  !!!    !@!
+:!!       !!:       !!:  !!!  !!:  !!!  !!:       !!: :!!      :!:  !!:    !!:
+:!:        :!:      :!:  !:!  :!:  !:!  :!:       :!:  !:!      ::!!:!     :!:
+ ::: :::   :: ::::  ::::: ::   ::   ::   :: ::::  ::   :::       ::::      :::
+ :: :: :  : :: : :   : :  :   ::    :   : :: ::    :   : :        :         ::
 `;
 
 const mostrarTitulo = () => {
@@ -49,7 +29,6 @@ const mostrarTitulo = () => {
   console.log(gradient.pastel.multiline(titulo));
 };
 
-// Upload arquivo grande pro catbox
 async function uploadBigFileToCatbox(filePath) {
   try {
     const form = new FormData();
@@ -92,9 +71,7 @@ async function downloadAndUploadFile(attachment) {
     });
 
     const link = await uploadBigFileToCatbox(tmpPath);
-
     fs.unlinkSync(tmpPath);
-
     return link;
   } catch (error) {
     if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
@@ -125,45 +102,43 @@ async function downloadAndUploadFile(attachment) {
 
     const origem = await client.guilds.fetch(idServerOrigem).catch(() => null);
     const destino = await client.guilds.fetch(idServerDestino).catch(() => null);
-
-    if (!origem || !destino) {
-      console.log(chalk.red('\n❌ Servidores inválidos.'));
-      process.exit();
-    }
+    if (!origem || !destino) return console.log(chalk.red('\n❌ Servidores inválidos.')), process.exit();
 
     const catOrigem = origem.channels.cache.get(idCategoriaOrigem);
     const catDestino = destino.channels.cache.get(idCategoriaDestino);
+    if (!catOrigem || !catDestino) return console.log(chalk.red('\n❌ Categorias inválidas.')), process.exit();
 
-    if (!catOrigem || !catDestino) {
-      console.log(chalk.red('\n❌ Categorias inválidas.'));
-      process.exit();
-    }
+    try { await catDestino.setName(novoNomeCategoriaDestino); } catch {}
 
-    try {
-      await catDestino.setName(novoNomeCategoriaDestino);
-    } catch {
-      console.log(chalk.red('\n❌ Falha ao renomear categoria destino.'));
-    }
-
-    const canaisOriginais = origem.channels.cache
+    const canais = origem.channels.cache
       .filter(c => c.parentId === idCategoriaOrigem)
       .sort((a, b) => a.position - b.position);
 
-    const canalMap = new Map();
+    const mapaCanais = new Map();
 
-    for (const [_, canal] of canaisOriginais) {
+    for (const [_, canal] of canais) {
       try {
         const novoCanal = await destino.channels.create(canal.name, {
           type: canal.type,
           parent: catDestino.id,
+          topic: canal.topic || undefined,
+          bitrate: canal.bitrate || undefined,
+          userLimit: canal.userLimit || undefined,
+          rateLimitPerUser: canal.rateLimitPerUser || undefined,
         });
-        canalMap.set(canal.id, novoCanal.id);
+
+        mapaCanais.set(canal.id, novoCanal.id);
         console.log(gradient.vice(`[>] Clonando canal: ${canal.name}`));
 
         const msgs = await canal.messages.fetch({ limit: 50 });
 
         for (const msg of msgs.reverse().values()) {
           let content = msg.content || '';
+
+          content = content.replace(/<#(\d+)>/g, (match, oldId) => {
+            const novoId = mapaCanais.get(oldId);
+            return novoId ? `<#${novoId}>` : match;
+          });
 
           if (msg.attachments.size > 0) {
             for (const a of msg.attachments.values()) {
@@ -179,12 +154,6 @@ async function downloadAndUploadFile(attachment) {
               }
             }
           }
-
-          // Corrigir tags #canal
-          content = content.replace(/<#(\d+)>/g, (match, idAntigo) => {
-            const novoId = canalMap.get(idAntigo);
-            return novoId ? `<#${novoId}>` : match;
-          });
 
           try {
             await novoCanal.send(content || '[mensagem vazia]');
