@@ -1,15 +1,16 @@
 {
-  "name": "clonador-discord",
+  "name": "selfbot-clone",
   "version": "1.0.0",
-  "description": "Clonador de categorias, canais e mensagens com anexo via Selfbot.",
+  "description": "Selfbot para clonar categoria no Discord, usando discord.js-selfbot-v13 original",
   "main": "index.js",
   "scripts": {
-    "start": "clear && node index.js"
+    "start": "node index.js",
+    "setup": "npm install"
   },
   "dependencies": {
-    "axios": "^1.6.7",
+    "axios": "^1.4.0",
     "chalk": "^5.3.0",
-    "discord.js-selfbot-v13": "^1.0.0",
+    "discord.js-selfbot-v13": "^1.14.8",
     "figlet": "^1.5.2",
     "form-data": "^4.0.0",
     "gradient-string": "^2.0.1"
