@@ -29,29 +29,38 @@ const mostrarTitulo = () => {
   console.log(gradient.pastel.multiline(titulo));
 };
 
-// Função com log para tradução via LibreTranslate
+// Função com retry e fallback pra tradução via LibreTranslate
 async function traduzirParaPortugues(texto) {
   if (!texto || texto.trim() === '') return '';
 
-  try {
-    console.log(chalk.blue('[API] Traduzindo mensagem...'));
-    const res = await axios.post('https://libretranslate.de/translate', {
-      q: texto,
-      source: 'auto',
-      target: 'pt',
-      format: 'text'
-    }, {
-      headers: { 'Content-Type': 'application/json' },
-      timeout: 15000 // 15 segundos
-    });
+  const endpoints = [
+    'https://libretranslate.de/translate',
+    'https://translate.argosopentech.com/translate'
+  ];
 
-    console.log(chalk.green('[API] Tradução recebida.'));
-    return res.data.translatedText;
-  } catch (err) {
-    console.log(chalk.red(`[API] Erro na tradução: ${err.message}`));
-    // Se erro, retorna texto original para não travar
-    return texto;
+  for (const url of endpoints) {
+    try {
+      console.log(chalk.blue(`[API] Traduzindo mensagem via ${url} ...`));
+      const res = await axios.post(url, {
+        q: texto,
+        source: 'auto',
+        target: 'pt',
+        format: 'text'
+      }, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 60000 // 60 segundos
+      });
+
+      console.log(chalk.green(`[API] Tradução recebida via ${url}.`));
+      return res.data.translatedText;
+    } catch (err) {
+      console.log(chalk.red(`[API] Erro na tradução via ${url}: ${err.message}`));
+      // tenta próximo endpoint
+    }
   }
+
+  // Se todos falharem, retorna texto original para não travar o bot
+  return texto;
 }
 
 // Upload arquivo grande pro catbox
@@ -194,7 +203,7 @@ async function downloadAndUploadFile(attachment) {
             }
           }
 
-          // Tradução com logs
+          // Tradução com logs e retry
           const conteudoTraduzido = await traduzirParaPortugues(content);
 
           try {
