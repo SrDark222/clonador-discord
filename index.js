@@ -3,11 +3,9 @@ const readline = require('readline');
 const gradient = require('gradient-string');
 const figlet = require('figlet');
 const chalk = require('chalk');
-const util = require('util');
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-const ask = q => new Promise(res => rl.question(q, res));
-
+const ask = (q) => new Promise(res => rl.question(q, res));
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 const typeEffect = async (text) => {
@@ -59,20 +57,15 @@ const mostrarTitulo = () => {
 
   const client = new Discord.Client();
 
-  client.login(token).catch(() => {
-    console.log(gradient.cristal('\n「?」 TOKEN INVÁLIDO. ENCERRANDO.'));
-    process.exit();
-  });
-
   client.on('ready', async () => {
     mostrarTitulo();
     console.log(gradient.instagram(`\n[+] SELF BOT LOGADO COMO ${client.user.tag}`));
 
-    const origem = await client.guilds.fetch(idServerOrigem).catch(() => null);
-    const destino = await client.guilds.fetch(idServerDestino).catch(() => null);
+    const origem = client.guilds.cache.get(idServerOrigem);
+    const destino = client.guilds.cache.get(idServerDestino);
 
     if (!origem || !destino) {
-      console.log('\n「?」 Servidores inválidos.');
+      console.log(chalk.red('\n❌ Servidores inválidos.'));
       process.exit();
     }
 
@@ -80,26 +73,28 @@ const mostrarTitulo = () => {
     const catDestino = destino.channels.cache.get(idCategoriaDestino);
 
     if (!catOrigem || !catDestino) {
-      console.log('\n「?」 Categorias inválidas.');
+      console.log(chalk.red('\n❌ Categorias inválidas.'));
       process.exit();
     }
 
     await catDestino.setName(novoNomeCategoriaDestino);
 
     const canais = origem.channels.cache
-      .filter(c => c.parentId === idCategoriaOrigem)
-      .sort((a, b) => a.position - b.position);
+      .filter(c => c.parentId === idCategoriaOrigem && (c.type === 0 || c.type === 5)) // text or announcement
+      .sort((a, b) => a.rawPosition - b.rawPosition);
 
-    for (const [_, canal] of canais) {
+    for (const canal of canais.values()) {
       try {
         const novoCanal = await destino.channels.create(canal.name, {
           type: canal.type,
           parent: catDestino.id
         });
 
-        const msgs = await canal.messages.fetch({ limit: 50 });
+        const msgs = await canal.messages.fetch({ limit: 50 }).catch(() => null);
+        if (!msgs) continue;
 
-        for (const msg of msgs.reverse().values()) {
+        const mensagens = Array.from(msgs.values()).reverse();
+        for (const msg of mensagens) {
           let content = msg.content || '';
 
           if (msg.attachments.size > 0) {
@@ -116,7 +111,7 @@ const mostrarTitulo = () => {
             await novoCanal.send(content || '[mensagem vazia]');
             console.log(gradient.morning(`[+1] ${canal.name}: Mensagem clonada`));
           } catch (err) {
-            console.log(gradient.passion(`[-] Erro ao enviar: ${err.message}`));
+            console.log(gradient.passion(`[-] Erro ao enviar mensagem: ${err.message}`));
           }
 
           await sleep(1300);
@@ -127,7 +122,12 @@ const mostrarTitulo = () => {
       }
     }
 
-    console.log(gradient.fruit('\n「🥷🏻」 CLONAGEM CONCLUÍDA!'));
+    console.log(gradient.fruit('\n✅ CLONAGEM CONCLUÍDA!'));
+    process.exit();
+  });
+
+  client.login(token).catch(() => {
+    console.log(gradient.cristal('\n❌ TOKEN INVÁLIDO. ENCERRANDO.'));
     process.exit();
   });
 })();
