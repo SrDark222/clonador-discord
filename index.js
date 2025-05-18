@@ -11,14 +11,6 @@ const rl = readline.createInterface({ input: process.stdin, output: process.stdo
 const ask = q => new Promise(res => rl.question(q, res));
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-const typeEffect = async (text) => {
-  for (const char of text) {
-    process.stdout.write(char);
-    await sleep(20);
-  }
-  process.stdout.write('\n');
-};
-
 const titulo = `
  @@@@@@@  @@@        @@@@@@   @@@  @@@  @@@@@@@@  @@@@@@@      @@@  @@@    @@@
 @@@@@@@@  @@@       @@@@@@@@  @@@@ @@@  @@@@@@@@  @@@@@@@@     @@@  @@@   @@@@
@@ -37,10 +29,25 @@ const mostrarTitulo = () => {
   console.log(gradient.pastel.multiline(titulo));
 };
 
-// Pega servidor catbox
-async function getCatboxServer() {
-  // catbox usa server padrão, não precisa pegar
-  return 'https://catbox.moe';
+// API tradução via LibreTranslate
+async function traduzirParaPortugues(texto) {
+  if (!texto || texto.trim() === '') return '';
+
+  try {
+    const res = await axios.post('https://libretranslate.de/translate', {
+      q: texto,
+      source: 'auto',
+      target: 'pt',
+      format: 'text'
+    }, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    return res.data.translatedText;
+  } catch (err) {
+    // Se der erro na tradução, retorna o texto original para não travar
+    return texto;
+  }
 }
 
 // Upload arquivo grande pro catbox
@@ -55,15 +62,12 @@ async function uploadBigFileToCatbox(filePath) {
       maxBodyLength: Infinity,
       maxContentLength: Infinity,
       timeout: 120000,
-      params: {
-        // Pode adicionar user hash aqui se quiser, mas não obrigatório
-      }
     });
 
     if (res.status === 200 && res.data.startsWith('https://')) {
       return res.data.trim();
     } else {
-      throw new Error('Upload falhou');
+      throw new Error('Falha no upload do arquivo');
     }
   } catch (err) {
     throw new Error(`Erro uploadBigFileToCatbox: ${err.message}`);
@@ -103,22 +107,22 @@ async function downloadAndUploadFile(attachment) {
 (async () => {
   mostrarTitulo();
 
-  await typeEffect('\n[?] COLE SEU TOKEN: ');
+  console.log('\n[?] COLE SEU TOKEN: ');
   const token = await ask('');
 
-  await typeEffect('[?] ID DO SERVIDOR DE ORIGEM: ');
+  console.log('[?] ID DO SERVIDOR DE ORIGEM: ');
   const idServerOrigem = await ask('');
 
-  await typeEffect('[?] ID DA CATEGORIA DE ORIGEM: ');
+  console.log('[?] ID DA CATEGORIA DE ORIGEM: ');
   const idCategoriaOrigem = await ask('');
 
-  await typeEffect('[?] ID DO SERVIDOR DESTINO: ');
+  console.log('[?] ID DO SERVIDOR DESTINO: ');
   const idServerDestino = await ask('');
 
-  await typeEffect('[?] ID DA CATEGORIA DESTINO: ');
+  console.log('[?] ID DA CATEGORIA DESTINO: ');
   const idCategoriaDestino = await ask('');
 
-  await typeEffect('[?] NOVO NOME DA CATEGORIA DESTINO: ');
+  console.log('[?] NOVO NOME DA CATEGORIA DESTINO: ');
   const novoNomeCategoriaDestino = await ask('');
 
   const client = new Discord.Client();
@@ -187,9 +191,12 @@ async function downloadAndUploadFile(attachment) {
             }
           }
 
+          // Traduz o conteúdo antes de enviar
+          const conteudoTraduzido = await traduzirParaPortugues(content);
+
           try {
-            await novoCanal.send(content || '[mensagem vazia]');
-            console.log(gradient.morning(`[+1] ${canal.name}: Mensagem clonada`));
+            await novoCanal.send(conteudoTraduzido || '[mensagem vazia]');
+            console.log(gradient.morning(`[+1] ${canal.name}: Mensagem clonada e traduzida`));
           } catch (err) {
             console.log(gradient.passion(`[-] Erro ao enviar: ${err.message}`));
           }
@@ -202,7 +209,7 @@ async function downloadAndUploadFile(attachment) {
       }
     }
 
-    console.log(gradient.fruit('\n✅ CLONAGEM CONCLUÍDA!'));
+    console.log(gradient.fruit('\n✅ CLONAGEM E TRADUÇÃO CONCLUÍDAS!'));
     process.exit();
   });
 })();
