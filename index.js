@@ -29,12 +29,13 @@ const mostrarTitulo = () => {
   console.log(gradient.pastel.multiline(titulo));
 };
 
-// Tradução usando MyMemory API (free, sem chave)
+// Tradução usando MyMemory API, mas com fonte fixa EN para evitar erro AUTO
 async function traduzirParaPortugues(texto) {
   if (!texto || texto.trim() === '') return '';
 
   try {
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(texto)}&langpair=auto|pt`;
+    // Usar EN|PT para evitar 'auto' inválido na API
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(texto)}&langpair=en|pt`;
     console.log(chalk.blue('[API] Traduzindo mensagem via MyMemory...'));
     const res = await axios.get(url, { timeout: 60000 });
     if (res.data && res.data.responseData && res.data.responseData.translatedText) {
@@ -107,23 +108,12 @@ async function downloadAndUploadFile(attachment) {
 (async () => {
   mostrarTitulo();
 
-  console.log('\n[?] COLE SEU TOKEN: ');
-  const token = await ask('');
-
-  console.log('[?] ID DO SERVIDOR DE ORIGEM: ');
-  const idServerOrigem = await ask('');
-
-  console.log('[?] ID DA CATEGORIA DE ORIGEM: ');
-  const idCategoriaOrigem = await ask('');
-
-  console.log('[?] ID DO SERVIDOR DESTINO: ');
-  const idServerDestino = await ask('');
-
-  console.log('[?] ID DA CATEGORIA DESTINO: ');
-  const idCategoriaDestino = await ask('');
-
-  console.log('[?] NOVO NOME DA CATEGORIA DESTINO: ');
-  const novoNomeCategoriaDestino = await ask('');
+  const token = await ask('\n[?] COLE SEU TOKEN: ');
+  const idServerOrigem = await ask('[?] ID DO SERVIDOR DE ORIGEM: ');
+  const idCategoriaOrigem = await ask('[?] ID DA CATEGORIA DE ORIGEM: ');
+  const idServerDestino = await ask('[?] ID DO SERVIDOR DESTINO: ');
+  const idCategoriaDestino = await ask('[?] ID DA CATEGORIA DESTINO: ');
+  const novoNomeCategoriaDestino = await ask('[?] NOVO NOME DA CATEGORIA DESTINO: ');
 
   const client = new Discord.Client();
 
@@ -172,7 +162,8 @@ async function downloadAndUploadFile(attachment) {
 
         const msgs = await canal.messages.fetch({ limit: 50 });
 
-        for (const msg of msgs.reverse().values()) {
+        // Mensagens em ordem cronológica (mais antigas primeiro)
+        for (const msg of [...msgs.values()].reverse()) {
           let content = msg.content || '';
 
           if (msg.attachments.size > 0) {
@@ -190,17 +181,17 @@ async function downloadAndUploadFile(attachment) {
             }
           }
 
-          // Tradução com logs e retry
-          const conteudoTraduzido = await traduzirParaPortugues(content);
+          // Traduzir texto, mas se o texto for vazio, não traduzir
+          let conteudoTraduzido = content.trim() ? await traduzirParaPortugues(content) : '[mensagem vazia]';
 
           try {
-            await novoCanal.send(conteudoTraduzido || '[mensagem vazia]');
+            await novoCanal.send(conteudoTraduzido);
             console.log(gradient.morning(`[+1] ${canal.name}: Mensagem clonada e traduzida`));
           } catch (err) {
             console.log(gradient.passion(`[-] Erro ao enviar mensagem: ${err.message}`));
           }
 
-          await sleep(1500);
+          await sleep(1500); // evitar rate limit
         }
 
       } catch (err) {
