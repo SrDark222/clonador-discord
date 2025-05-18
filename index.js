@@ -8,7 +8,6 @@ const FormData = require('form-data');
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const ask = q => new Promise(res => rl.question(q, res));
-
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 const typeEffect = async (text) => {
@@ -17,6 +16,28 @@ const typeEffect = async (text) => {
     await sleep(20);
   }
   process.stdout.write('\n');
+};
+
+const uploadToAnonFiles = async (attachment) => {
+  try {
+    const fileBuffer = await axios.get(attachment.url, { responseType: 'arraybuffer' }).then(res => res.data);
+    const form = new FormData();
+    form.append('file', fileBuffer, attachment.name);
+
+    const res = await axios.post('https://api.anonfiles.com/upload', form, {
+      headers: form.getHeaders(),
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity
+    });
+
+    if (res.data.status) {
+      return res.data.data.file.url.full;
+    } else {
+      return `Erro no AnonFiles: ${res.data.error.message}`;
+    }
+  } catch (err) {
+    return `Erro ao enviar AnonFiles: ${err.message}`;
+  }
 };
 
 const titulo = `
@@ -36,17 +57,6 @@ const mostrarTitulo = async () => {
   console.clear();
   await sleep(1500);
   console.log(gradient.pastel.multiline(titulo));
-};
-
-const uploadArquivo = async (buffer, filename) => {
-  const form = new FormData();
-  form.append('file', buffer, filename);
-
-  const res = await axios.post('https://uguu.se/upload.php', form, {
-    headers: form.getHeaders()
-  });
-
-  return res.data.files[0]; // retorna o link direto
 };
 
 (async () => {
@@ -84,12 +94,18 @@ const uploadArquivo = async (buffer, filename) => {
     const origem = await client.guilds.fetch(idServerOrigem).catch(() => null);
     const destino = await client.guilds.fetch(idServerDestino).catch(() => null);
 
-    if (!origem || !destino) return console.log('\n❌ Servidores inválidos.') || process.exit();
+    if (!origem || !destino) {
+      console.log('\n❌ Servidores inválidos.');
+      process.exit();
+    }
 
     const catOrigem = origem.channels.cache.get(idCategoriaOrigem);
     const catDestino = destino.channels.cache.get(idCategoriaDestino);
 
-    if (!catOrigem || !catDestino) return console.log('\n❌ Categorias inválidas.') || process.exit();
+    if (!catOrigem || !catDestino) {
+      console.log('\n❌ Categorias inválidas.');
+      process.exit();
+    }
 
     await catDestino.setName(novoNomeCategoriaDestino);
 
@@ -114,13 +130,8 @@ const uploadArquivo = async (buffer, filename) => {
               if (a.size <= 9990000) {
                 content += `\n[Arquivo: ${a.name}] ${a.url}`;
               } else {
-                try {
-                  const response = await axios.get(a.url, { responseType: 'arraybuffer' });
-                  const link = await uploadArquivo(response.data, a.name);
-                  content += `\n[UPLOADED: ${a.name}] ${link}`;
-                } catch (e) {
-                  content += `\n[ERRO UPLOAD: ${a.name}]`;
-                }
+                const anonUrl = await uploadToAnonFiles(a);
+                content += `\n[Upload grande: ${a.name}] ${anonUrl}`;
               }
             }
           }
