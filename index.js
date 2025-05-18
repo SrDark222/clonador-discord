@@ -6,6 +6,7 @@ const chalk = require('chalk');
 const axios = require('axios');
 const fs = require('fs');
 const FormData = require('form-data');
+const translate = require('@vitalets/google-translate-api');
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const ask = q => new Promise(res => rl.question(q, res));
@@ -29,38 +30,18 @@ const mostrarTitulo = () => {
   console.log(gradient.pastel.multiline(titulo));
 };
 
-// Função com retry e fallback pra tradução via LibreTranslate
+// Traduz com Google Translate API não oficial
 async function traduzirParaPortugues(texto) {
   if (!texto || texto.trim() === '') return '';
-
-  const endpoints = [
-    'https://libretranslate.de/translate',
-    'https://translate.argosopentech.com/translate'
-  ];
-
-  for (const url of endpoints) {
-    try {
-      console.log(chalk.blue(`[API] Traduzindo mensagem via ${url} ...`));
-      const res = await axios.post(url, {
-        q: texto,
-        source: 'auto',
-        target: 'pt',
-        format: 'text'
-      }, {
-        headers: { 'Content-Type': 'application/json' },
-        timeout: 60000 // 60 segundos
-      });
-
-      console.log(chalk.green(`[API] Tradução recebida via ${url}.`));
-      return res.data.translatedText;
-    } catch (err) {
-      console.log(chalk.red(`[API] Erro na tradução via ${url}: ${err.message}`));
-      // tenta próximo endpoint
-    }
+  try {
+    console.log(chalk.blue('[API] Traduzindo mensagem via Google Translate API...'));
+    const res = await translate(texto, { to: 'pt' });
+    console.log(chalk.green('[API] Tradução recebida.'));
+    return res.text;
+  } catch (err) {
+    console.log(chalk.red(`[API] Erro na tradução: ${err.message}`));
+    return texto; // fallback no texto original
   }
-
-  // Se todos falharem, retorna texto original para não travar o bot
-  return texto;
 }
 
 // Upload arquivo grande pro catbox
@@ -120,23 +101,12 @@ async function downloadAndUploadFile(attachment) {
 (async () => {
   mostrarTitulo();
 
-  console.log('\n[?] COLE SEU TOKEN: ');
-  const token = await ask('');
-
-  console.log('[?] ID DO SERVIDOR DE ORIGEM: ');
-  const idServerOrigem = await ask('');
-
-  console.log('[?] ID DA CATEGORIA DE ORIGEM: ');
-  const idCategoriaOrigem = await ask('');
-
-  console.log('[?] ID DO SERVIDOR DESTINO: ');
-  const idServerDestino = await ask('');
-
-  console.log('[?] ID DA CATEGORIA DESTINO: ');
-  const idCategoriaDestino = await ask('');
-
-  console.log('[?] NOVO NOME DA CATEGORIA DESTINO: ');
-  const novoNomeCategoriaDestino = await ask('');
+  const token = await ask('[?] COLE SEU TOKEN: ');
+  const idServerOrigem = await ask('[?] ID DO SERVIDOR DE ORIGEM: ');
+  const idCategoriaOrigem = await ask('[?] ID DA CATEGORIA DE ORIGEM: ');
+  const idServerDestino = await ask('[?] ID DO SERVIDOR DESTINO: ');
+  const idCategoriaDestino = await ask('[?] ID DA CATEGORIA DESTINO: ');
+  const novoNomeCategoriaDestino = await ask('[?] NOVO NOME DA CATEGORIA DESTINO: ');
 
   const client = new Discord.Client();
 
@@ -203,7 +173,7 @@ async function downloadAndUploadFile(attachment) {
             }
           }
 
-          // Tradução com logs e retry
+          // Tradução via Google Translate API
           const conteudoTraduzido = await traduzirParaPortugues(content);
 
           try {
