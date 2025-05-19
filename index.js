@@ -172,7 +172,7 @@ async function downloadAndUploadFile(attachment) {
       }
     }
 
-    console.log(gradient.fruit('\n✅ CLONAGEM CONCLUÍDA!'));
+    console.log(gradient.fruit('\n「✔️」 CLONAGEM CONCLUÍDA!'));
     process.exit();
   });
 })();
