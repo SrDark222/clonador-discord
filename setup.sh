@@ -1,5 +1,8 @@
 #!/data/data/com.termux/files/usr/bin/bash
 
+echo -e "\n[⚠️] Limpeza auto..."
+reset()
+
 echo -e "\n[+] Atualizando pacotes..."
 pkg update -y && pkg upgrade -y
 
