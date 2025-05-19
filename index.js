@@ -1,178 +1,144 @@
 const Discord = require('discord.js-selfbot-v13');
-const readline = require('readline');
-const gradient = require('gradient-string');
-const figlet = require('figlet');
-const chalk = require('chalk');
 const axios = require('axios');
 const fs = require('fs');
 const FormData = require('form-data');
+const gradient = require('gradient-string');
+const figlet = require('figlet');
 
-const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-const ask = q => new Promise(res => rl.question(q, res));
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-const titulo = `
- @@@@@@@  @@@        @@@@@@   @@@  @@@  @@@@@@@@  @@@@@@@      @@@  @@@    @@@
-@@@@@@@@  @@@       @@@@@@@@  @@@@ @@@  @@@@@@@@  @@@@@@@@     @@@  @@@   @@@@
-!@@       @@!       @@!  @@@  @@!@!@@@  @@!       @@!  @@@     @@!  @@@  @@@!!
-!@!       !@!       !@!  @!@  !@!!@!@!  !@!       !@!  !@!     !@!  @!@    !@!
-!@!       @!!       @!@  !@!  @!@ !!@!  @!!!:!    @!@!!@!      @!@  !@!    @!@
-!!!       !!!       !@!  !!!  !@!  !!!  !!!!!:    !!@!@!       !@!  !!!    !@!
-:!!       !!:       !!:  !!!  !!:  !!!  !!:       !!: :!!      :!:  !!:    !!:
-:!:        :!:      :!:  !:!  :!:  !:!  :!:       :!:  !:!      ::!!:!     :!:
- ::: :::   :: ::::  ::::: ::   ::   ::   :: ::::  ::   :::       ::::      :::
- :: :: :  : :: : :   : :  :   ::    :   : :: ::    :   : :        :         ::
-`;
+const banner = figlet.textSync('DKZIN Clonador', { horizontalLayout: 'default' });
+console.clear();
+console.log(gradient.pastel.multiline(banner));
 
-const mostrarTitulo = () => {
-  console.clear();
-  console.log(gradient.pastel.multiline(titulo));
-};
+// CONFIGURAÇÃO MANUAL AQUI DK
+const token = 'SEU_TOKEN_DO_DISCORD';
+const idServerOrigem = 'ID_SERVIDOR_ORIGEM';
+const idCategoriaOrigem = 'ID_CATEGORIA_ORIGEM';
+const idServerDestino = 'ID_SERVIDOR_DESTINO';
+const idCategoriaDestino = 'ID_CATEGORIA_DESTINO';
+const novoNomeCategoria = 'NOME_DA_CATEGORIA_CLONADA';
 
-async function uploadBigFileToCatbox(filePath) {
+const client = new Discord.Client();
+
+async function uploadToCatbox(filePath) {
+  const form = new FormData();
+  form.append('reqtype', 'fileupload');
+  form.append('fileToUpload', fs.createReadStream(filePath));
+
   try {
-    const form = new FormData();
-    form.append('reqtype', 'fileupload');
-    form.append('fileToUpload', fs.createReadStream(filePath));
-
     const res = await axios.post('https://catbox.moe/user/api.php', form, {
       headers: form.getHeaders(),
-      maxBodyLength: Infinity,
-      maxContentLength: Infinity,
       timeout: 120000,
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity
     });
-
-    if (res.status === 200 && res.data.startsWith('https://')) {
-      return res.data.trim();
-    } else {
-      throw new Error('Falha no upload do arquivo');
-    }
-  } catch (err) {
-    throw new Error(`Erro uploadBigFileToCatbox: ${err.message}`);
+    return res.data.startsWith('https') ? res.data : null;
+  } catch (e) {
+    return null;
   }
 }
 
-async function downloadAndUploadFile(attachment) {
-  const tmpPath = `./temp_${attachment.id}_${attachment.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-  try {
-    const writer = fs.createWriteStream(tmpPath);
-    const response = await axios({
-      url: attachment.url,
-      method: 'GET',
-      responseType: 'stream',
-      timeout: 60000,
-    });
+async function baixarArquivo(attachment) {
+  const filePath = `./TEMP_${attachment.id}_${attachment.name.replace(/[^\w.-]/g, '')}`;
+  const writer = fs.createWriteStream(filePath);
 
-    response.data.pipe(writer);
-
-    await new Promise((resolve, reject) => {
-      writer.on('finish', resolve);
-      writer.on('error', reject);
-    });
-
-    const link = await uploadBigFileToCatbox(tmpPath);
-    fs.unlinkSync(tmpPath);
-    return link;
-  } catch (error) {
-    if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
-    throw new Error(`Falha download/upload: ${error.message}`);
-  }
-}
-
-(async () => {
-  mostrarTitulo();
-
-  const token = await ask('\n[?] COLE SEU TOKEN: ');
-  const idServerOrigem = await ask('[?] ID DO SERVIDOR DE ORIGEM: ');
-  const idCategoriaOrigem = await ask('[?] ID DA CATEGORIA DE ORIGEM: ');
-  const idServerDestino = await ask('[?] ID DO SERVIDOR DESTINO: ');
-  const idCategoriaDestino = await ask('[?] ID DA CATEGORIA DESTINO: ');
-  const novoNomeCategoriaDestino = await ask('[?] NOVO NOME DA CATEGORIA DESTINO: ');
-
-  const client = new Discord.Client();
-
-  client.login(token).catch(() => {
-    console.log(gradient.cristal('\n❌ TOKEN INVÁLIDO. ENCERRANDO.'));
-    process.exit();
+  const response = await axios({
+    url: attachment.url,
+    method: 'GET',
+    responseType: 'stream'
   });
 
-  client.on('ready', async () => {
-    mostrarTitulo();
-    console.log(gradient.instagram(`\n[+] SELF BOT LOGADO COMO ${client.user.tag}`));
+  response.data.pipe(writer);
 
-    const origem = await client.guilds.fetch(idServerOrigem).catch(() => null);
-    const destino = await client.guilds.fetch(idServerDestino).catch(() => null);
-    if (!origem || !destino) return console.log(chalk.red('\n❌ Servidores inválidos.')), process.exit();
+  return new Promise((resolve, reject) => {
+    writer.on('finish', () => resolve(filePath));
+    writer.on('error', reject);
+  });
+}
 
-    const catOrigem = origem.channels.cache.get(idCategoriaOrigem);
-    const catDestino = destino.channels.cache.get(idCategoriaDestino);
-    if (!catOrigem || !catDestino) return console.log(chalk.red('\n❌ Categorias inválidas.')), process.exit();
+client.on('ready', async () => {
+  console.log(gradient.instagram(`\n[LOGADO COMO] ${client.user.tag}\n`));
 
-    try { await catDestino.setName(novoNomeCategoriaDestino); } catch {}
+  const origem = await client.guilds.fetch(idServerOrigem);
+  const destino = await client.guilds.fetch(idServerDestino);
 
-    const canais = [...origem.channels.cache
-      .filter(c => c.parentId === idCategoriaOrigem)
-      .sort((a, b) => a.rawPosition - b.rawPosition).values()];
+  const catOrigem = origem.channels.cache.get(idCategoriaOrigem);
+  const catDestino = destino.channels.cache.get(idCategoriaDestino);
 
-    const mapaCanais = new Map();
+  if (!catOrigem || !catDestino) {
+    console.log(gradient.cristal('❌ Categoria inválida.'));
+    return process.exit();
+  }
 
-    for (const canal of canais) {
-      try {
-        const novoCanal = await destino.channels.create(canal.name, {
-          type: canal.type,
-          parent: catDestino.id,
-          topic: canal.topic || undefined,
-          bitrate: canal.bitrate || undefined,
-          userLimit: canal.userLimit || undefined,
-          rateLimitPerUser: canal.rateLimitPerUser || undefined,
-        });
+  try {
+    await catDestino.setName(novoNomeCategoria);
+  } catch {}
 
-        mapaCanais.set(canal.id, novoCanal.id);
-        console.log(gradient.vice(`[>] Clonando canal: ${canal.name}`));
+  const canaisOriginais = origem.channels.cache.filter(c => c.parentId === idCategoriaOrigem).sort((a, b) => a.rawPosition - b.rawPosition);
+  const mapaCanais = new Map();
 
-        if (canal.type === Discord.ChannelType.GuildText) {
-          const msgs = await canal.messages.fetch({ limit: 50 });
+  for (const canal of canaisOriginais.values()) {
+    try {
+      const novoCanal = await destino.channels.create(canal.name, {
+        type: canal.type,
+        parent: catDestino.id,
+        topic: canal.topic,
+        rateLimitPerUser: canal.rateLimitPerUser,
+        userLimit: canal.userLimit,
+        bitrate: canal.bitrate
+      });
 
-          for (const msg of [...msgs.values()].reverse()) {
-            let content = msg.content || '';
+      mapaCanais.set(canal.id, novoCanal.id);
+      console.log(gradient.vice(`[+] Canal clonado: ${canal.name}`));
 
-            content = content.replace(/<#(\d+)>/g, (match, oldId) => {
-              const novoId = mapaCanais.get(oldId);
-              return novoId ? `<#${novoId}>` : match;
-            });
+      if (canal.type === 0) {
+        const mensagens = await canal.messages.fetch({ limit: 50 });
 
-            if (msg.attachments.size > 0) {
-              for (const a of msg.attachments.values()) {
-                if (a.size <= 9990000) {
-                  content += `\n[${a.name}](${a.url})`;
-                } else {
-                  try {
-                    const linkUpload = await downloadAndUploadFile(a);
-                    content += `\n[${a.name}](${linkUpload})`;
-                  } catch (err) {
-                    content += `\nERRO AO UPLOAD ARQUIVO GRANDE: ${err.message}`;
+        for (const msg of [...mensagens.values()].reverse()) {
+          let texto = msg.content || '';
+
+          texto = texto.replace(/<#(\d+)>/g, (m, id) => {
+            const novoId = mapaCanais.get(id);
+            return novoId ? `<#${novoId}>` : m;
+          });
+
+          if (msg.attachments.size > 0) {
+            for (const atch of msg.attachments.values()) {
+              if (atch.size <= 9990000) {
+                texto += `\n[${atch.name}](${atch.url})`;
+              } else {
+                try {
+                  const caminho = await baixarArquivo(atch);
+                  const link = await uploadToCatbox(caminho);
+                  fs.unlinkSync(caminho);
+                  if (link) {
+                    texto += `\n[ARQUIVO GRANDE - CATBOX](${link})`;
+                  } else {
+                    texto += '\n[Erro ao subir para o Catbox]';
                   }
+                } catch {
+                  texto += '\n[Erro ao baixar/upload de arquivo]';
                 }
               }
             }
+          }
 
-            try {
-              await novoCanal.send(content || '[mensagem vazia]');
-              console.log(gradient.morning(`[+1] ${canal.name}: Mensagem clonada`));
-            } catch (err) {
-              console.log(gradient.passion(`[-] Erro ao enviar mensagem: ${err.message}`));
-            }
-
+          try {
+            await novoCanal.send(texto || '[mensagem vazia]');
             await sleep(1500);
+          } catch (e) {
+            console.log(gradient.summer(`[-] Falha msg: ${e.message}`));
           }
         }
-
-      } catch (err) {
-        console.log(gradient.summer(`[-] Falha ao clonar canal ${canal.name}: ${err.message}`));
       }
+    } catch (e) {
+      console.log(gradient.passion(`[-] Erro ao criar canal ${canal.name}: ${e.message}`));
     }
+  }
 
-    console.log(gradient.fruit('\n「✔️」 CLONAGEM CONCLUÍDA!'));
-    process.exit();
-  });
-})();
+  console.log(gradient.fruit('\n✅ Clonagem finalizada com sucesso!\n'));
+  process.exit();
+});
+
+client.login(token);
